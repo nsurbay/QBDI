@@ -331,8 +331,37 @@ bool Engine::run(rword start, rword stop) {
             LogDebug("Engine::run", "Executing 0x%" PRIRWORD " through execBroker", currentPC);
             // transfer execution
             signalEvent(EXEC_TRANSFER_CALL, currentPC, curGPRState, curFPRState);
+            switch(signalEvent(EXEC_TRANSFER_RETURN, currentPC, curGPRState, curFPRState)) {
+                case CONTINUE:
+                    break;
+                case BREAK_TO_VM:
+                    currentPC = QBDI_GPR_GET(curGPRState, REG_PC);
+                    LogDebug("Engine::run", "Next address to execute is 0x%" PRIRWORD, currentPC);
+                    continue;
+                case STOP:
+                    *gprState = *curGPRState;
+                    *fprState = *curFPRState;
+                    curGPRState = gprState.get();
+                    curFPRState = fprState.get();
+                    return hasRan;
+            }
+
             execBroker->transferExecution(currentPC, curGPRState, curFPRState);
-            signalEvent(EXEC_TRANSFER_RETURN, currentPC, curGPRState, curFPRState);
+
+            switch(signalEvent(EXEC_TRANSFER_RETURN, currentPC, curGPRState, curFPRState)) {
+                case CONTINUE:
+                    break;
+                case BREAK_TO_VM:
+                    currentPC = QBDI_GPR_GET(curGPRState, REG_PC);
+                    LogDebug("Engine::run", "Next address to execute is 0x%" PRIRWORD, currentPC);
+                    continue;
+                case STOP:
+                    *gprState = *curGPRState;
+                    *fprState = *curFPRState;
+                    curGPRState = gprState.get();
+                    curFPRState = fprState.get();
+                    return hasRan;
+            }
         }
         // Else execute through DBI
         else {
@@ -373,7 +402,20 @@ bool Engine::run(rword start, rword stop) {
             if ((curExecBlock->getSeqType(curExecBlock->getCurrentSeqID()) & SeqType::Entry) > 0) {
                 event |= BASIC_BLOCK_ENTRY;
             }
-            signalEvent(event, currentPC, curGPRState, curFPRState);
+            switch(signalEvent(event, currentPC, curGPRState, curFPRState)) {
+                case CONTINUE:
+                    break;
+                case BREAK_TO_VM:
+                    currentPC = QBDI_GPR_GET(curGPRState, REG_PC);
+                    LogDebug("Engine::run", "Next address to execute is 0x%" PRIRWORD, currentPC);
+                    continue;
+                case STOP:
+                    *gprState = *curGPRState;
+                    *fprState = *curFPRState;
+                    curGPRState = gprState.get();
+                    curFPRState = fprState.get();
+                    return hasRan;
+            }
 
             // Execute
             hasRan = true;
@@ -394,7 +436,20 @@ bool Engine::run(rword start, rword stop) {
             if ((curExecBlock->getSeqType(curExecBlock->getCurrentSeqID()) & SeqType::Exit) > 0) {
                 event |= BASIC_BLOCK_EXIT;
             }
-            signalEvent(event, currentPC, curGPRState, curFPRState);
+            switch(signalEvent(event, currentPC, curGPRState, curFPRState)) {
+                case CONTINUE:
+                    break;
+                case BREAK_TO_VM:
+                    currentPC = QBDI_GPR_GET(curGPRState, REG_PC);
+                    LogDebug("Engine::run", "Next address to execute is 0x%" PRIRWORD, currentPC);
+                    continue;
+                case STOP:
+                    *gprState = *curGPRState;
+                    *fprState = *curFPRState;
+                    curGPRState = gprState.get();
+                    curFPRState = fprState.get();
+                    return hasRan;
+            }
         }
         // Get next block PC
         currentPC = QBDI_GPR_GET(curGPRState, REG_PC);
@@ -432,9 +487,11 @@ uint32_t Engine::addVMEventCB(VMEvent mask, VMCallback cbk, void *data) {
     return id | EVENTID_VM_MASK;
 }
 
-void Engine::signalEvent(VMEvent event, rword currentPC, GPRState *gprState, FPRState *fprState) {
+VMAction Engine::signalEvent(VMEvent event, rword currentPC, GPRState *gprState, FPRState *fprState) {
     static VMState vmState;
     static rword lastUpdatePC = 0;
+    VMAction action = CONTINUE;
+    VMAction action_tmp;
 
     for(const auto& item : vmCallbacks) {
         const QBDI::CallbackRegistration& r = item.second;
@@ -453,9 +510,51 @@ void Engine::signalEvent(VMEvent event, rword currentPC, GPRState *gprState, FPR
                 }
             }
             vmState.event = event;
-            r.cbk(vminstance, &vmState, gprState, fprState, r.data);
+            LogDebug("Engine::signalEvent", "Callback 0x%" PRIRWORD " call for event 0x%x (mask 0x%x)",
+                    r.cbk, event, r.mask);
+
+            action_tmp = r.cbk(vminstance, &vmState, gprState, fprState, r.data);
+
+            LogCallback(LogPriority::DEBUG, "Engine::signalEvent", [&] (FILE *log) -> void {
+                const char* name;
+                switch (action_tmp) {
+                    case CONTINUE:
+                        name = "CONTINUE";
+                        break;
+                    case BREAK_TO_VM:
+                        name = "BREAK_TO_VM";
+                        break;
+                    case STOP:
+                        name = "STOP";
+                        break;
+                    default:
+                        name = "UNKNOW";
+                }
+                fprintf(log, "Callback 0x%" PRIRWORD " result : %s", r.cbk, name);
+            });
+
+            if (action_tmp > action)
+                action = action_tmp;
         }
     }
+    LogCallback(LogPriority::DEBUG, "Engine::signalEvent", [&] (FILE *log) -> void {
+        const char* name;
+        switch (action) {
+            case CONTINUE:
+                name = "CONTINUE";
+                break;
+            case BREAK_TO_VM:
+                name = "BREAK_TO_VM";
+                break;
+            case STOP:
+                name = "STOP";
+                break;
+            default:
+                name = "UNKNOW";
+        }
+        fprintf(log, "Result VMCallback : %s", name);
+    });
+    return action;
 }
 
 bool Engine::deleteInstrumentation(uint32_t id) {
