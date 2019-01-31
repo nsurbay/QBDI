@@ -179,6 +179,18 @@ bool Engine::isPreInst() const {
     return curExecBlock->getInstAddress(instID) == QBDI_GPR_GET(getGPRState(), REG_PC);
 }
 
+bool Engine::getEnableAddrRet() {
+    return execBroker->getEnableAddrRet();
+}
+
+void Engine::setEnableAddrRet(bool enable) {
+    execBroker->setEnableAddrRet(enable);
+}
+
+rword Engine::getExecBrokerReturnAddress() {
+    return execBroker->getReturnAddress();
+}
+
 void Engine::addInstrumentedRange(rword start, rword end) {
     execBroker->addInstrumentedRange(Range<rword>(start, end));
 }
@@ -193,6 +205,10 @@ bool Engine::addInstrumentedModuleFromAddr(rword addr) {
 
 bool Engine::instrumentAllExecutableMaps() {
     return execBroker->instrumentAllExecutableMaps();
+}
+
+bool Engine::isInstrumented(rword addr) {
+    return execBroker->isInstrumented(addr);
 }
 
 void Engine::removeInstrumentedRange(rword start, rword end) {

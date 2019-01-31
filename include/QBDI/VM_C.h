@@ -49,6 +49,33 @@ QBDI_EXPORT void qbdi_initVM(VMInstanceRef* instance, const char* cpu, const cha
  */
 QBDI_EXPORT void qbdi_terminateVM(VMInstanceRef instance);
 
+/*! Get if ExecBroker try to change return addr
+ *
+ * @param[in] instance VM instance.
+ * @return  Status of ExecBroker
+ */
+QBDI_EXPORT bool qbdi_getEnableAddrRet(VMInstanceRef instance);
+
+/*! Set if ExecBroker try to change return addr
+ *
+ * @param[in] instance VM instance.
+ * @param[in] enable  state to set
+ *
+ * if set to False, return address must be add as breakpoint by user
+ *
+ */
+QBDI_EXPORT void qbdi_setEnableAddrRet(VMInstanceRef instance, bool enable);
+
+/*! Get return to VM address of ExecBroker
+ *
+ * @param[in] instance VM instance.
+ *
+ * @return  Address of epilogue to return to VM when use ExecBroker
+ *
+ * Set it in place of return address if you don't want to use breakpoint
+ */
+QBDI_EXPORT rword qbdi_getExecBrokerReturnAddress(VMInstanceRef instance);
+
 /*! Add an address range to the set of instrumented address ranges.
  *
  * @param[in] instance VM instance.
@@ -83,6 +110,15 @@ QBDI_EXPORT bool qbdi_addInstrumentedModuleFromAddr(VMInstanceRef instance, rwor
  * @return  True if at least one range was added to the instrumented ranges.
  */
 QBDI_EXPORT bool qbdi_instrumentAllExecutableMaps(VMInstanceRef instance);
+
+/*! Return if an address is intrumented
+ *
+ * @param[in] instance VM instance.
+ * @param[in] addr  An address to check
+ *
+ * @return  True if address is instrumented.
+ */
+QBDI_EXPORT bool qbdi_isInstrumented(VMInstanceRef instance, rword addr);
 
 /*! Remove an address range from the set of instrumented address ranges.
  *

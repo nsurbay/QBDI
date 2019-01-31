@@ -137,6 +137,27 @@ public:
      */
     void        setFPRState(FPRState* fprState);
 
+    /*! Get if ExecBroker try to change return addr
+     *
+     */
+    bool         getEnableAddrRet();
+
+    /*! Set if ExecBroker try to change return addr
+     *
+     * @param[in] enable  state to set
+     *
+     * if set to False, return address must be add as breakpoint by user
+     *
+     */
+    void         setEnableAddrRet(bool enable);
+
+    /*! Get return to VM address of ExecBroker
+     *
+     * Set it in place of return address if you don't want to use breakpoint
+     *
+     */
+    rword        getExecBrokerReturnAddress();
+
     /*! Add an address range to the set of instrumented address ranges.
      *
      * @param[in] start  Start address of the range (included).
@@ -163,6 +184,12 @@ public:
      * @return  True if at least one range was added to the instrumented ranges.
      */
     bool         instrumentAllExecutableMaps();
+    /*! Return if an address is intrumented
+     *
+     * @param[in] addr  An address to check
+     * @return  True if address is instrumented.
+     */
+    bool         isInstrumented(rword addr);
 
     /*! Remove an address range to the set from instrumented address ranges.
      *

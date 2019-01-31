@@ -24,6 +24,10 @@ ExecBroker::ExecBroker(Assembly& assembly, VMInstanceRef vminstance) :
     pageSize = llvm::sys::Process::getPageSize();
 }
 
+rword ExecBroker::getReturnAddress() {
+    return transferBlock.getCurrentPC() + transferBlock.getEpilogueOffset();
+}
+
 void ExecBroker::addInstrumentedRange(const Range<rword>& r) {
     LogDebug("ExecBroker::addInstrumentedRange", "Adding instrumented range [%" PRIRWORD ", %" PRIRWORD "]", 
              r.start, r.end);
@@ -104,24 +108,27 @@ bool ExecBroker::instrumentAllExecutableMaps() {
 }
 
 bool ExecBroker::canTransferExecution(GPRState *gprState) const {
-    return getReturnPoint(gprState) ? true : false;
+    return (!enableRetAddr || getReturnPoint(gprState));
 }
 
 bool ExecBroker::transferExecution(rword addr, GPRState *gprState, FPRState *fprState) {
-    rword hookedAddress = 0;
-    rword hook = 0;
-    rword *ptr = NULL;
 
-    ptr = getReturnPoint(gprState);
-    if (!ptr)
-        return false;
-
-    // Backup / Patch return address
-    hookedAddress = *ptr;
-    hook = transferBlock.getCurrentPC() + transferBlock.getEpilogueOffset();
-    *ptr = hook;
-    LogDebug("ExecBroker::transferExecution", "Patched %p hooking return address 0x%" PRIRWORD " with 0x%" PRIRWORD, 
-             ptr, hookedAddress, *ptr);
+    if (enableRetAddr) {
+        rword hookedAddress = 0;
+        rword hook = 0;
+        rword *ptr = NULL;
+    
+        ptr = getReturnPoint(gprState);
+        if (!ptr)
+            return false;
+    
+        // Backup / Patch return address
+        hookedAddress = *ptr;
+        hook = transferBlock.getCurrentPC() + transferBlock.getEpilogueOffset();
+        *ptr = hook;
+        LogDebug("ExecBroker::transferExecution", "Patched %p hooking return address 0x%" PRIRWORD " with 0x%" PRIRWORD, 
+                 ptr, hookedAddress, *ptr);
+    }
 
     // Write transfer state
     transferBlock.getContext()->gprState = *gprState;
@@ -130,14 +137,16 @@ bool ExecBroker::transferExecution(rword addr, GPRState *gprState, FPRState *fpr
     // Execute transfer
     LogDebug("ExecBroker::transferExecution", "Transfering execution to 0x%" PRIRWORD " using transferBlock %p", addr, &transferBlock);
     transferBlock.run();
-    // Restore original return
-    QBDI_GPR_SET(&transferBlock.getContext()->gprState, REG_PC, hookedAddress);
-    #if defined(QBDI_ARCH_ARM)
-    // Under ARM, also reset the LR register
-    if(QBDI_GPR_GET(&transferBlock.getContext()->gprState, REG_LR) == hook) {
-        QBDI_GPR_SET(&transferBlock.getContext()->gprState, REG_LR, hookedAddress);
+    if (enableRetAddr) {
+        // Restore original return
+        QBDI_GPR_SET(&transferBlock.getContext()->gprState, REG_PC, hookedAddress);
+        #if defined(QBDI_ARCH_ARM)
+        // Under ARM, also reset the LR register
+        if(QBDI_GPR_GET(&transferBlock.getContext()->gprState, REG_LR) == hook) {
+            QBDI_GPR_SET(&transferBlock.getContext()->gprState, REG_LR, hookedAddress);
+        }
+        #endif
     }
-    #endif
     // Read transfer result
     *gprState = transferBlock.getContext()->gprState;
     *fprState = transferBlock.getContext()->fprState;

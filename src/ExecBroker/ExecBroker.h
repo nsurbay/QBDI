@@ -35,6 +35,7 @@ class ExecBroker {
 
 private:
     
+    bool                   enableRetAddr = true;
     RangeSet<rword>        instrumented;
     ExecBlock              transferBlock;
     rword                  pageSize;
@@ -50,6 +51,9 @@ public:
 
     bool isInstrumented(rword addr) const { return instrumented.contains(addr);}
 
+    bool getEnableAddrRet() const { return enableRetAddr;}
+    void setEnableAddrRet(bool enable) { enableRetAddr = enable;}
+    rword getReturnAddress();
     void addInstrumentedRange(const Range<rword>& r);
     bool addInstrumentedModule(const std::string& name);
     bool addInstrumentedModuleFromAddr(rword addr);

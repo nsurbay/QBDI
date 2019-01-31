@@ -49,6 +49,21 @@ void qbdi_terminateVM(VMInstanceRef instance) {
     delete (VM*) instance;
 }
 
+bool qbdi_getEnableAddrRet(VMInstanceRef instance) {
+    RequireAction("VM_C::getEnableAddrRet", instance, return false);
+    return ((VM*)instance)->getEnableAddrRet();
+}
+
+void qbdi_setEnableAddrRet(VMInstanceRef instance, bool enable) {
+    RequireAction("VM_C::setEnableAddrRet", instance, return);
+    ((VM*)instance)->setEnableAddrRet(enable);
+}
+
+rword qbdi_getExecBrokerReturnAddress(VMInstanceRef instance) {
+    RequireAction("VM_C::getExecBrokerReturnAddress", instance, return 0);
+    return ((VM*)instance)->getExecBrokerReturnAddress();
+}
+
 void qbdi_addInstrumentedRange(VMInstanceRef instance, rword start, rword end) {
     RequireAction("VM_C::addInstrumentedRange", instance, return);
     ((VM*)instance)->addInstrumentedRange(start, end);
@@ -67,6 +82,11 @@ bool qbdi_addInstrumentedModuleFromAddr(VMInstanceRef instance, rword addr) {
 bool qbdi_instrumentAllExecutableMaps(VMInstanceRef instance) {
     RequireAction("VM_C::instrumentAllExecutableMaps", instance, return false);
     return ((VM*)instance)->instrumentAllExecutableMaps();
+}
+
+bool qbdi_isInstrumented(VMInstanceRef instance, rword addr) {
+    RequireAction("VM_C::isInstrumented", instance, return false);
+    return ((VM*)instance)->isInstrumented(addr);
 }
 
 void qbdi_removeInstrumentedRange(VMInstanceRef instance, rword start, rword end) {

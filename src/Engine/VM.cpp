@@ -118,6 +118,18 @@ void VM::setFPRState(FPRState* fprState) {
     engine->setFPRState(fprState);
 }
 
+bool VM::getEnableAddrRet() {
+    return engine->getEnableAddrRet();
+}
+
+void VM::setEnableAddrRet(bool enable) {
+    engine->setEnableAddrRet(enable);
+}
+
+rword VM::getExecBrokerReturnAddress() {
+    engine->getExecBrokerReturnAddress();
+}
+
 void VM::addInstrumentedRange(rword start, rword end) {
     RequireAction("VM::addInstrumentedRange", start < end, return);
     engine->addInstrumentedRange(start, end);
@@ -133,6 +145,10 @@ bool VM::addInstrumentedModuleFromAddr(rword addr) {
 
 bool VM::instrumentAllExecutableMaps() {
     return engine->instrumentAllExecutableMaps();
+}
+
+bool VM::isInstrumented(rword addr) {
+    return engine->isInstrumented(addr);
 }
 
 void VM::removeInstrumentedRange(rword start, rword end) {
