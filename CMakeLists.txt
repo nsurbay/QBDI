@@ -219,6 +219,7 @@ set(SOURCES
     "src/ExecBlock/ExecBlockManager.cpp"
     "src/ExecBroker/ExecBroker.cpp"
     "src/Patch/InstrRules.cpp"
+    "src/Patch/Trampoline.cpp"
     "src/Patch/${ARCH}/InstInfo_${ARCH}.cpp"
     "src/Patch/${ARCH}/PatchRules_${ARCH}.cpp"
     "src/Patch/${ARCH}/Layer2_${ARCH}.cpp"

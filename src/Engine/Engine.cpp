@@ -114,7 +114,7 @@ Engine::Engine(const std::string& _cpu, const std::vector<std::string>& _mattrs,
     // Allocate QBDI classes
     assembly = new Assembly(*MCTX, std::move(MAB), *MCII, *processTarget, *MSTI);
     blockManager = new ExecBlockManager(*MCII, *MRI, *assembly, vminstance);
-    execBroker = new ExecBroker(*assembly, vminstance);
+    execBroker = new ExecBroker(*assembly, vminstance, *MCII, *MRI);
 
     // Get default Patch rules for this architecture
     patchRules = getDefaultPatchRules();
@@ -187,8 +187,24 @@ void Engine::setEnableAddrRet(bool enable) {
     execBroker->setEnableAddrRet(enable);
 }
 
+void Engine::addExecBrokerNoRetAddr(rword addr) {
+    execBroker->addNoRetAddr(addr);
+}
+
+void Engine::removeExecBrokerNoRetAddr(rword addr) {
+    execBroker->removeNoRetAddr(addr);
+}
+
 rword Engine::getExecBrokerReturnAddress() {
     return execBroker->getReturnAddress();
+}
+
+rword Engine::addTrampolineCB(InstCallback cbk, void* data) {
+    return execBroker->addTrampolineCB(cbk, data);
+}
+
+void Engine::removeTrampolineCB(rword addr) {
+    execBroker->removeTrampolineCB(addr);
 }
 
 void Engine::addInstrumentedRange(rword start, rword end) {
@@ -346,8 +362,7 @@ bool Engine::run(rword start, rword stop) {
             curExecBlock = nullptr;
             LogDebug("Engine::run", "Executing 0x%" PRIRWORD " through execBroker", currentPC);
             // transfer execution
-            signalEvent(EXEC_TRANSFER_CALL, currentPC, curGPRState, curFPRState);
-            switch(signalEvent(EXEC_TRANSFER_RETURN, currentPC, curGPRState, curFPRState)) {
+            switch(signalEvent(EXEC_TRANSFER_CALL, currentPC, curGPRState, curFPRState)) {
                 case CONTINUE:
                     break;
                 case BREAK_TO_VM:
@@ -499,9 +514,17 @@ uint32_t Engine::addInstrRule(InstrRule rule) {
 uint32_t Engine::addVMEventCB(VMEvent mask, VMCallback cbk, void *data) {
     uint32_t id = vmCallbacksCounter++;
     RequireAction("Engine::addVMEventCB", id < EVENTID_VM_MASK, return VMError::INVALID_EVENTID);
-    vmCallbacks.push_back(std::make_pair(id, CallbackRegistration {mask, cbk, data}));
+    vmCallbacks.push_back(std::make_pair(id, CallbackRegistration {mask, Range<rword>(0, -1), cbk, data}));
     return id | EVENTID_VM_MASK;
 }
+
+uint32_t Engine::addExecBrokerCB(rword start, rword end, VMCallback cbk, void *data) {
+    uint32_t id = vmCallbacksCounter++;
+    RequireAction("Engine::addExecBrokerCB", id < EVENTID_VM_MASK, return VMError::INVALID_EVENTID);
+    vmCallbacks.push_back(std::make_pair(id, CallbackRegistration {EXEC_TRANSFER_CALL, Range<rword>(start, end), cbk, data}));
+    return id | EVENTID_VM_MASK;
+}
+
 
 VMAction Engine::signalEvent(VMEvent event, rword currentPC, GPRState *gprState, FPRState *fprState) {
     static VMState vmState;
@@ -511,7 +534,7 @@ VMAction Engine::signalEvent(VMEvent event, rword currentPC, GPRState *gprState,
 
     for(const auto& item : vmCallbacks) {
         const QBDI::CallbackRegistration& r = item.second;
-        if(event & r.mask) {
+        if(event & r.mask && r.pcRangeNeeded.contains(currentPC)) {
             if(lastUpdatePC != currentPC) {
                 lastUpdatePC = currentPC;
                 if(curExecBlock != nullptr) {

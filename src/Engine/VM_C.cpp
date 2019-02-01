@@ -59,9 +59,29 @@ void qbdi_setEnableAddrRet(VMInstanceRef instance, bool enable) {
     ((VM*)instance)->setEnableAddrRet(enable);
 }
 
+void qbdi_addExecBrokerNoRetAddr(VMInstanceRef instance, rword addr) {
+    RequireAction("VM_C::setEnableAddrRet", instance, return);
+    ((VM*)instance)->addExecBrokerNoRetAddr(addr);
+}
+
+void qbdi_removeExecBrokerNoRetAddr(VMInstanceRef instance, rword addr) {
+    RequireAction("VM_C::setEnableAddrRet", instance, return);
+    ((VM*)instance)->removeExecBrokerNoRetAddr(addr);
+}
+
 rword qbdi_getExecBrokerReturnAddress(VMInstanceRef instance) {
     RequireAction("VM_C::getExecBrokerReturnAddress", instance, return 0);
     return ((VM*)instance)->getExecBrokerReturnAddress();
+}
+
+rword qbdi_addTrampolineCB(VMInstanceRef instance, InstCallback cbk, void* data) {
+    RequireAction("VM_C::getExecBrokerReturnAddress", instance, return 0);
+    return ((VM*)instance)->addTrampolineCB(cbk, data);
+}
+
+void qbdi_removeTrampolineCB(VMInstanceRef instance, rword addr) {
+    RequireAction("VM_C::getExecBrokerReturnAddress", instance, return);
+    ((VM*)instance)->removeTrampolineCB(addr);
 }
 
 void qbdi_addInstrumentedRange(VMInstanceRef instance, rword start, rword end) {
@@ -191,6 +211,16 @@ uint32_t qbdi_addMemRangeCB(VMInstanceRef instance, rword start, rword end, Memo
 uint32_t qbdi_addVMEventCB(VMInstanceRef instance, VMEvent mask, VMCallback cbk, void *data) {
     RequireAction("VM_C::addVMEventCB", instance, return VMError::INVALID_EVENTID);
     return ((VM*) instance)->addVMEventCB(mask, cbk, data);
+}
+
+uint32_t qbdi_addExecBrokerCB(VMInstanceRef instance, rword start, rword end, VMCallback cbk, void *data) {
+    RequireAction("VM_C::addVMEventCB", instance, return VMError::INVALID_EVENTID);
+    return ((VM*) instance)->addExecBrokerCB(start, end, cbk, data);
+}
+
+uint32_t qbdi_addExecBrokerAddrCB(VMInstanceRef instance, rword addr, VMCallback cbk, void *data) {
+    RequireAction("VM_C::addVMEventCB", instance, return VMError::INVALID_EVENTID);
+    return ((VM*) instance)->addExecBrokerCB(addr, addr + 1, cbk, data);
 }
 
 bool qbdi_deleteInstrumentation(VMInstanceRef instance, uint32_t id) {

@@ -126,8 +126,24 @@ void VM::setEnableAddrRet(bool enable) {
     engine->setEnableAddrRet(enable);
 }
 
+void VM::addExecBrokerNoRetAddr(rword addr) {
+    engine->addExecBrokerNoRetAddr(addr);
+}
+
+void VM::removeExecBrokerNoRetAddr(rword addr) {
+    engine->removeExecBrokerNoRetAddr(addr);
+}
+
 rword VM::getExecBrokerReturnAddress() {
-    engine->getExecBrokerReturnAddress();
+    return engine->getExecBrokerReturnAddress();
+}
+
+rword VM::addTrampolineCB(InstCallback cbk, void* data) {
+    return engine->addTrampolineCB(cbk, data);
+}
+
+void VM::removeTrampolineCB(rword addr) {
+    engine->removeTrampolineCB(addr);
 }
 
 void VM::addInstrumentedRange(rword start, rword end) {
@@ -319,6 +335,17 @@ uint32_t VM::addVMEventCB(VMEvent mask, VMCallback cbk, void *data) {
     RequireAction("VM::addVMEventCB", mask != 0, return VMError::INVALID_EVENTID);
     RequireAction("VM::addVMEventCB", cbk != nullptr, return VMError::INVALID_EVENTID);
     return engine->addVMEventCB(mask, cbk, data);
+}
+
+uint32_t VM::addExecBrokerCB(rword start, rword end, VMCallback cbk, void *data) {
+    RequireAction("VM::addExecBrokerCB", cbk != nullptr, return VMError::INVALID_EVENTID);
+    RequireAction("VM::addExecBrokerCB", start < end, return VMError::INVALID_EVENTID);
+    return engine->addExecBrokerCB(start, end, cbk, data);
+}
+
+uint32_t VM::addExecBrokerAddrCB(rword addr, VMCallback cbk, void *data) {
+    RequireAction("VM::addExecBrokerAddrCB", cbk != nullptr, return VMError::INVALID_EVENTID);
+    return addExecBrokerCB(addr, addr + 1, cbk, data);
 }
 
 bool VM::deleteInstrumentation(uint32_t id) {
