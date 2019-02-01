@@ -357,8 +357,28 @@ bool Engine::run(rword start, rword stop) {
     // Execute basic block per basic block
     do {
         // If this PC is not instrumented try to transfer execution
-        if(execBroker->isInstrumented(currentPC) == false &&
-           execBroker->canTransferExecution(curGPRState)) {
+        bool toVM = execBroker->isInstrumented(currentPC);
+
+        if(!toVM && !execBroker->canTransferExecution(curGPRState)) {
+            switch(signalEvent(EXEC_TRANSFER_MISSING_RET, currentPC, curGPRState, curFPRState)) {
+                case CONTINUE:
+                    break;
+                case BREAK_TO_VM:
+                    currentPC = QBDI_GPR_GET(curGPRState, REG_PC);
+                    LogDebug("Engine::run", "Next address to execute is 0x%" PRIRWORD, currentPC);
+                    continue;
+                case STOP:
+                    *gprState = *curGPRState;
+                    *fprState = *curFPRState;
+                    curGPRState = gprState.get();
+                    curFPRState = fprState.get();
+                    return hasRan;
+            }
+
+            toVM = execBroker->isInstrumented(currentPC) || !execBroker->canTransferExecution(curGPRState);
+        }
+
+        if(!toVM) {
             curExecBlock = nullptr;
             LogDebug("Engine::run", "Executing 0x%" PRIRWORD " through execBroker", currentPC);
             // transfer execution
