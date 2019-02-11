@@ -187,7 +187,7 @@ bool ExecBroker::transferExecution(rword addr, GPRState *gprState, FPRState *fpr
     transferBlock.getContext()->hostState.callback = 0;
     // Execute transfer
     LogDebug("ExecBroker::transferExecution", "Transfering execution to 0x%" PRIRWORD " using transferBlock %p", addr, &transferBlock);
-    transferBlock.run();
+    transferBlock.run(true);
     // Read transfer result
     *gprState = transferBlock.getContext()->gprState;
     *fprState = transferBlock.getContext()->fprState;

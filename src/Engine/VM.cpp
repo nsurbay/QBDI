@@ -88,6 +88,11 @@ VMAction stopCallback(VMInstanceRef vm, GPRState* gprState, FPRState* fprState, 
     return VMAction::STOP;
 }
 
+bool VM::_qbdi_VMRunning = false;
+bool VM::qbdi_VMRunning() {
+    return _qbdi_VMRunning;
+}
+
 VM::VM(const std::string& cpu, const std::vector<std::string>& mattrs) :
     memoryLoggingLevel(0), memCBID(0), memReadGateCBID(VMError::INVALID_EVENTID), memWriteGateCBID(VMError::INVALID_EVENTID) {
     engine = new Engine(cpu, mattrs, this);

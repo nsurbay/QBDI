@@ -136,7 +136,7 @@ public:
     
     /* Low level run function. Does not take care of the callbacks.
     */
-    void run();
+    void run(bool set_qbdi_VMRunning=false);
 
     /*! Execute the sequence currently programmed in the selector of the exec block. Take care 
      *  of the callbacks handling.

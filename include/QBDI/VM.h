@@ -49,6 +49,8 @@ class QBDI_EXPORT VM {
     uint32_t memWriteGateCBID;
 
     public:
+    static bool _qbdi_VMRunning;
+    static bool qbdi_VMRunning();
     /*! Construct a new VM for a given CPU with specific attributes
      *
      * @param[in] cpu    The name of the CPU

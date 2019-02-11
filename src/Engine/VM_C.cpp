@@ -23,6 +23,10 @@
 
 namespace QBDI {
 
+bool qbdi_VMRunning() {
+    return QBDI::VM::qbdi_VMRunning();
+}
+
 void qbdi_initVM(VMInstanceRef* instance, const char* cpu, const char** mattrs) {
     RequireAction("VM_C::initVM", instance, return);
 

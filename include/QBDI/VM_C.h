@@ -27,10 +27,13 @@
 #include "State.h"
 #include "InstAnalysis.h"
 
+
 #ifdef __cplusplus
 namespace QBDI {
 extern "C" {
 #endif
+
+QBDI_EXPORT bool qbdi_VMRunning();
 
 
 /*! Create and initialize a VM instance.
