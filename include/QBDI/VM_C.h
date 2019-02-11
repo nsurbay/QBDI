@@ -109,16 +109,6 @@ QBDI_EXPORT void qbdi_removeTrampolineCB(VMInstanceRef instance, rword addr);
  */
 QBDI_EXPORT void qbdi_setEnableAddrRet(VMInstanceRef instance, bool enable);
 
-/*! Get return to VM address of ExecBroker
- *
- * @param[in] instance VM instance.
- *
- * @return  Address of epilogue to return to VM when use ExecBroker
- *
- * Set it in place of return address if you don't want to use breakpoint
- */
-QBDI_EXPORT rword qbdi_getExecBrokerReturnAddress(VMInstanceRef instance);
-
 /*! Add an address range to the set of instrumented address ranges.
  *
  * @param[in] instance VM instance.

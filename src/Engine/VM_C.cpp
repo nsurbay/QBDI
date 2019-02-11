@@ -60,27 +60,22 @@ void qbdi_setEnableAddrRet(VMInstanceRef instance, bool enable) {
 }
 
 void qbdi_addExecBrokerNoRetAddr(VMInstanceRef instance, rword addr) {
-    RequireAction("VM_C::setEnableAddrRet", instance, return);
+    RequireAction("VM_C::addExecBrokerNoRetAddr", instance, return);
     ((VM*)instance)->addExecBrokerNoRetAddr(addr);
 }
 
 void qbdi_removeExecBrokerNoRetAddr(VMInstanceRef instance, rword addr) {
-    RequireAction("VM_C::setEnableAddrRet", instance, return);
+    RequireAction("VM_C::removeExecBrokerNoRetAddr", instance, return);
     ((VM*)instance)->removeExecBrokerNoRetAddr(addr);
 }
 
-rword qbdi_getExecBrokerReturnAddress(VMInstanceRef instance) {
-    RequireAction("VM_C::getExecBrokerReturnAddress", instance, return 0);
-    return ((VM*)instance)->getExecBrokerReturnAddress();
-}
-
 rword qbdi_addTrampolineCB(VMInstanceRef instance, InstCallback cbk, void* data) {
-    RequireAction("VM_C::getExecBrokerReturnAddress", instance, return 0);
+    RequireAction("VM_C::addTrampolineCB", instance, return 0);
     return ((VM*)instance)->addTrampolineCB(cbk, data);
 }
 
 void qbdi_removeTrampolineCB(VMInstanceRef instance, rword addr) {
-    RequireAction("VM_C::getExecBrokerReturnAddress", instance, return);
+    RequireAction("VM_C::removeTrampolineCB", instance, return);
     ((VM*)instance)->removeTrampolineCB(addr);
 }
 

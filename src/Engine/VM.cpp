@@ -134,10 +134,6 @@ void VM::removeExecBrokerNoRetAddr(rword addr) {
     engine->removeExecBrokerNoRetAddr(addr);
 }
 
-rword VM::getExecBrokerReturnAddress() {
-    return engine->getExecBrokerReturnAddress();
-}
-
 rword VM::addTrampolineCB(InstCallback cbk, void* data) {
     return engine->addTrampolineCB(cbk, data);
 }

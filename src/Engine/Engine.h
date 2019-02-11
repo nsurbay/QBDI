@@ -192,13 +192,6 @@ public:
      */
     void        removeTrampolineCB(rword addr);
 
-    /*! Get return to VM address of ExecBroker
-     *
-     * Set it in place of return address if you don't want to use breakpoint
-     *
-     */
-    rword        getExecBrokerReturnAddress();
-
     /*! Add an address range to the set of instrumented address ranges.
      *
      * @param[in] start  Start address of the range (included).

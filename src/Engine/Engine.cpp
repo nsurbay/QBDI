@@ -195,10 +195,6 @@ void Engine::removeExecBrokerNoRetAddr(rword addr) {
     execBroker->removeNoRetAddr(addr);
 }
 
-rword Engine::getExecBrokerReturnAddress() {
-    return execBroker->getReturnAddress();
-}
-
 rword Engine::addTrampolineCB(InstCallback cbk, void* data) {
     return execBroker->addTrampolineCB(cbk, data);
 }

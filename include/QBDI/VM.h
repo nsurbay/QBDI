@@ -136,14 +136,6 @@ class QBDI_EXPORT VM {
      */
     void removeTrampolineCB(rword addr);
 
-    /*! Get return to VM address of ExecBroker
-     *
-     * Set it in place of return address if you don't want to use breakpoint
-     *
-     * @return  Address of epilogue to return to VM when use ExecBroker
-     */
-    rword        getExecBrokerReturnAddress();
-
     /*! Add an address range to the set of instrumented address ranges.
      *
      * @param[in] start  Start address of the range (included).
@@ -374,7 +366,7 @@ class QBDI_EXPORT VM {
      */
     uint32_t    addVMEventCB(VMEvent mask, VMCallback cbk, void *data);
 
-    /*! Register a callback event when ExecBroker exit to a specific address range
+    /*! Register a callback event when ExecBroker exit to a specific address range.
      *
      * @param[in] start begin of address range
      * @param[in] end   exclusive end of address range
@@ -386,7 +378,7 @@ class QBDI_EXPORT VM {
      */
     uint32_t    addExecBrokerCB(rword start, rword end, VMCallback cbk, void *data);
 
-    /*! Register a callback event when ExecBroker exit to a specific address range
+    /*! Register a callback event when ExecBroker exit to a specific address.
      *
      * @param[in] addr address to hooked
      * @param[in] cbk  A function pointer to the callback.
