@@ -7,4 +7,7 @@ if(HAS_QBDIPRELOAD)
 
     # Add pyqbdi
     add_subdirectory(pyqbdi)
+
+    # Add QBDInjector
+    add_subdirectory(QBDInjector)
 endif()
