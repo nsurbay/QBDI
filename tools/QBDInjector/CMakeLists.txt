@@ -75,6 +75,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s")
 
 set(QBDInjector_SRC
     "${CMAKE_CURRENT_SOURCE_DIR}/QBDInjector.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/QBDInjector_${OS}.cpp"
     )
 
 add_executable(QBDInjector ${QBDInjector_SRC})
