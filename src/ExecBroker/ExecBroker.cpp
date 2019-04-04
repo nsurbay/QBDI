@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "ExecBroker/ExecBroker.h" 
+#include "ExecBroker/ExecBroker.h"
 
 namespace QBDI {
 
@@ -44,7 +44,7 @@ rword ExecBroker::addTrampolineCB(InstCallback cbk, void* data){
     res->internal = false;
     res->cb.cbk = cbk;
     res->cb.data = data;
-    
+
     return res->addr;
 }
 
@@ -59,7 +59,7 @@ struct CallbackTrampoline* ExecBroker::getTrampoline(){
     }
     rword addrTrampoline = transferBlock.getCurrentPC();
     std::vector<Patch> patchvect = getExecbrokerTrampoline(addrTrampoline, &MCII, &MRI);
-    
+
     SeqWriteResult writeRes = transferBlock.writeSequence(patchvect.begin(), patchvect.end(), SeqType::Exit);
     if (writeRes.seqID == EXEC_BLOCK_FULL) {
         LogDebug("ExecBroker::getTrampoline", "No Free Space available");
@@ -67,6 +67,7 @@ struct CallbackTrampoline* ExecBroker::getTrampoline(){
     }
     trampolineCallBacks.push_back( CallbackTrampoline {addrTrampoline, false, true});
     LogDebug("ExecBroker::getTrampoline", "Create new Trampoline at 0x%" PRIRWORD, addrTrampoline);
+    noRetAddr.insert(addrTrampoline);
     return &trampolineCallBacks[trampolineCallBacks.size() - 1];
 }
 
@@ -80,13 +81,13 @@ void ExecBroker::removeTrampolineCB(rword addr){
 }
 
 void ExecBroker::addInstrumentedRange(const Range<rword>& r) {
-    LogDebug("ExecBroker::addInstrumentedRange", "Adding instrumented range [%" PRIRWORD ", %" PRIRWORD "]", 
+    LogDebug("ExecBroker::addInstrumentedRange", "Adding instrumented range [%" PRIRWORD ", %" PRIRWORD "]",
              r.start, r.end);
     instrumented.add(r);
 }
 
 void ExecBroker::removeInstrumentedRange(const Range<rword>& r) {
-    LogDebug("ExecBroker::removeInstrumentedRange", "Removing instrumented range [%" PRIRWORD ", %" PRIRWORD "]", 
+    LogDebug("ExecBroker::removeInstrumentedRange", "Removing instrumented range [%" PRIRWORD ", %" PRIRWORD "]",
              r.start, r.end);
     instrumented.remove(r);
 }
@@ -169,14 +170,14 @@ bool ExecBroker::transferExecution(rword addr, GPRState *gprState, FPRState *fpr
     if (enableRetAddr && noRetAddr.find(QBDI_GPR_GET(gprState, REG_PC)) == noRetAddr.end()) {
         if (!ptr)
             return false;
-    
+
         // Backup / Patch return address
         struct CallbackTrampoline* tramp = getTrampoline();
         tramp->internal = true;
         tramp->data.originReturnAddr = *ptr;
         tramp->data.addrReturnAddr = (rword) ptr;
         *ptr = tramp->addr;
-        LogDebug("ExecBroker::transferExecution", "Patched %p hooking return address 0x%" PRIRWORD " with 0x%" PRIRWORD, 
+        LogDebug("ExecBroker::transferExecution", "Patched %p hooking return address 0x%" PRIRWORD " with 0x%" PRIRWORD,
                  ptr, tramp->data.originReturnAddr, *ptr);
     }
 
