@@ -1,11 +1,15 @@
+
+#include "Injector.h"
+
 #include <iostream>
 #include <argp.h>
 #include <unistd.h>
 #include <errno.h>
 
-#include "QBDInjector.hpp"
 
-const char DEFAULT_ENTRYPOINT[] =  "_qbdinjector_entrypoint";
+namespace QBDInjector {
+
+const char DEFAULT_ENTRYPOINT[] =  "entrypoint";
 
 void help(int exit_value, char* arg0) __attribute__((noreturn));
 void help(int exit_value, char* arg0) {
@@ -72,8 +76,8 @@ struct arguments* parse_argv(int argc, char** argv) {
     arg->entrypoint_name = NULL;
     arg->parameter = NULL;
     arg->verbose = 0;
-    arg->wait = 1;
-    arg->resume = 1;
+    arg->wait = true;
+    arg->resume = true;
 
     while ((c = getopt_long (argc, argv, "a:s:S:i:n:p:e:hvqrw", long_options, &option_index)) != -1) {
         switch (c) {
@@ -86,8 +90,6 @@ struct arguments* parse_argv(int argc, char** argv) {
                 if (c == 'S') {
                     arg->exectype = ExecType::SPAWN;
                 } else {
-                    fprintf(stderr, "--sync not implemented\n");
-                    exit(255);
                     arg->exectype = ExecType::SYNC;
                 }
                 arg->command = optarg;
@@ -141,16 +143,16 @@ struct arguments* parse_argv(int argc, char** argv) {
                 arg->verbose++;
                 break;
             case 'q':
-                arg->wait = 0;
-                arg->resume = 0;
+                arg->wait = false;
+                arg->resume = false;
                 break;
             case 'r':
-                arg->wait = 0;
-                arg->resume = 1;
+                arg->wait = false;
+                arg->resume = true;
                 break;
             case 'w':
-                arg->wait = 1;
-                arg->resume = 1;
+                arg->wait = true;
+                arg->resume = true;
                 break;
             default:
                 help(1, argv[0]);
@@ -161,9 +163,12 @@ struct arguments* parse_argv(int argc, char** argv) {
         help(1, argv[0]);
     }
 
-    if (arg->exectype == ExecType::SYNC && arg->entrypoint_name != NULL) {
-        fprintf(stderr, "Cannot use --entrypoint_name with --sync\n");
-        help(1, argv[0]);
+    if (arg->exectype == ExecType::SYNC) {
+        if (arg->entrypoint_name != NULL) {
+            fprintf(stderr, "Cannot use --entrypoint_name with --sync\n");
+            help(1, argv[0]);
+        }
+        arg->entrypoint_name = strdup(ENTRYPOINT_NAME);
     }
 
     if (arg->entrypoint_name == NULL) {
@@ -179,18 +184,48 @@ struct arguments* parse_argv(int argc, char** argv) {
     return arg;
 }
 
-#define LOG1(...) if (arg->verbose >= 1) {fprintf(stderr, __VA_ARGS__);}
-#define LOGE() \
-    if (error != nullptr) { \
-        fprintf(stderr, "[-] Error %s:%d: %s\n", __FILE__, __LINE__, error->message); \
-        g_error_free(error); \
-        return 1; \
-    }
-
 int inject(FridaDevice* device, struct arguments* arg) {
     GError* error = nullptr;
     frida_device_inject_library_file_sync(device, arg->pid, arg->injectlibrary, arg->entrypoint_name,  arg->entrypoint_parameter, &error);
     LOGE();
+    return 0;
+}
+
+int sync(FridaDevice* device, struct arguments* arg) {
+
+    GError* error = nullptr;
+
+    LOG1("[+] create pipe\n")
+    arg->entrypoint_parameter = init_server(arg->verbose);
+    LOG1("[+] Inject lib %s and call %s(\"%s\")\n", arg->injectlibrary, arg->entrypoint_name, arg->entrypoint_parameter);
+    inject(device, arg);
+    LOG1("[+] connect to pipe\n");
+    open_pipe();
+
+    LOG1("[+] Send parameter : %s\n", arg->parameter);
+    int len_parameter = strlen(arg->parameter) + 1;
+    send_message((char*) &len_parameter, sizeof(len_parameter));
+    send_message(arg->parameter, len_parameter);
+
+    int result_user_init;
+    read_message((char*) &result_user_init, sizeof(result_user_init), false);
+
+    if (result_user_init & QBDINJECTOR_STOP) {
+        arg->wait = false;
+        arg->resume = false;
+        LOG1("[+] Received stop message, immediatly exit\n");
+        frida_device_kill_sync(device, arg->pid, &error);
+        LOGE();
+        close_pipe();
+        return 0;
+    }
+
+    arg->wait = result_user_init & QBDINJECTOR_WAIT;
+    if (result_user_init & QBDINJECTOR_INJECT) {
+        setup_inject(device, arg);
+    }
+
+    close_pipe();
     return 0;
 }
 
@@ -242,30 +277,33 @@ int spawn(struct arguments* arg) {
     } else {
         ret = sync(device, arg);
     }
-    if (ret)
-        return ret;
 
-    if (arg->resume) {
+    if (!ret && arg->resume) {
         LOG1("[+] Resume\n");
         frida_device_resume_sync(device, arg->pid, &error);
         LOGE();
     }
 
-    if (arg->wait) {
+    if (!ret && arg->wait) {
         wait_end_child(arg);
     }
 
-    frida_session_detach_sync(session);
-    LOGE();
+    if (!frida_session_is_detached(session)) {
+        LOG1("[+] Detach\n");
+        frida_session_detach_sync(session);
+        LOGE();
+    }
+
     frida_unref(session);
     LOGE();
     frida_unref(device);
     LOGE();
     frida_device_manager_close_sync(manager);
     LOGE();
+
     frida_unref (manager);
     LOGE();
-    return 0;
+    return ret;
 }
 
 
@@ -288,6 +326,7 @@ int attach(struct arguments* arg) {
 }
 
 
+extern "C" {
 int main(int argc, char** argv) {
     struct arguments* arg = parse_argv(argc, argv);
     int res = 0;
@@ -304,4 +343,7 @@ int main(int argc, char** argv) {
 
     delete arg;
     return res;
+}
+}
+
 }
