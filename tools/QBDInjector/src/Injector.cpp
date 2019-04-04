@@ -284,10 +284,6 @@ int spawn(struct arguments* arg) {
         LOGE();
     }
 
-    if (!ret && arg->wait) {
-        wait_end_child(arg);
-    }
-
     if (!frida_session_is_detached(session)) {
         LOG1("[+] Detach\n");
         frida_session_detach_sync(session);
@@ -300,9 +296,13 @@ int spawn(struct arguments* arg) {
     LOGE();
     frida_device_manager_close_sync(manager);
     LOGE();
-
     frida_unref (manager);
     LOGE();
+
+    if (!ret && arg->wait) {
+        wait_end_child(arg);
+    }
+
     return ret;
 }
 
