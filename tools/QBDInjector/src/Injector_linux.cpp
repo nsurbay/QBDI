@@ -34,7 +34,7 @@ int setup_inject(FridaDevice* device, struct arguments* arg) {
     printf("[+] new stack : 0x%lx\n", new_stack);
 
     // send stop signal to process
-    LOG1("[+] Stop process and detach frida\n");
+    LOG1("[+] Stop process and detach ptrace of frida\n");
     kill(arg->pid, SIGSTOP);
 
     // detach ptrace of frida, process will be stopped by the signal
