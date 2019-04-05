@@ -67,7 +67,7 @@ def build_llvm(llvm_dir, build_dir, arch, platform, arm_arch=None):
 
     # set platform specific arguments.
     if platform == "win":
-        cmake_specific_option = ["-G", "Visual Studio 14 2015 Win64"]
+        cmake_specific_option = ["-G", "Visual Studio 16 2019"]
     elif platform == "iOS":
         cc = subprocess.check_output(["xcrun", "--sdk", "iphoneos", "-f", "clang"])
         cxx = subprocess.check_output(["xcrun", "--sdk", "iphoneos", "-f", "clang++"])
