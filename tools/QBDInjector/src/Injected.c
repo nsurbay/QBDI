@@ -1,12 +1,15 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include "Injected.h"
 #include "QBDInjector.h"
 
 
+#if defined(QBDI_OS_WIN)
+void
+#else
 void __attribute__ ((visibility ("default")))
+#endif
 _qbdinjector_frida_entrypoint(const char* msg, bool* stay_resident) {
 
     *stay_resident = true;
@@ -38,7 +41,8 @@ _qbdinjector_frida_entrypoint(const char* msg, bool* stay_resident) {
     res = qbdinjector_frida_init(parameter);
 
     if (!(res & QBDINJECTOR_STOP) && res & QBDINJECTOR_INJECT) {
-        return prepare_inject(res);
+        prepare_inject(res);
+        return;
     } else {
         send_message((char*) &res, sizeof(res));
         close_pipe();

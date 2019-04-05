@@ -3,7 +3,6 @@
 
 #include "QBDInjector_common.h"
 #include "QBDInjector.h"
-#include <sys/mman.h>
 
 #ifdef _QBDI_DEBUG
 #define LOG1(...) if (arg->verbose >= 1) {fprintf(stderr, __VA_ARGS__);}
