@@ -4,9 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <unistd.h>
 #include <stdbool.h>
-#include "QBDI.h"
+#include "QBDI/Platform.h"
+#include "QBDI/State.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,7 +23,7 @@ void init_client(const char* pipename, int verbose);
 void open_pipe();
 void close_pipe();
 void send_message(char* buf, size_t len);
-ssize_t read_message(char *buf, size_t len, bool allow_EOF);
+int read_message(char *buf, size_t len, bool allow_EOF);
 
 #ifdef __cplusplus
 }

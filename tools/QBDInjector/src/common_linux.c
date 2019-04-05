@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <string.h>
+#include <unistd.h>
 
 
 #define LOG1(fmt, ...) if (ctx.verbose >= 1) { \
@@ -123,10 +124,11 @@ void send_message(char* buf, size_t len) {
     }
 }
 
-ssize_t read_message(char *buf, size_t len, bool allow_EOF) {
-    uint32_t nb_read = 0;
+int read_message(char *buf, size_t len, bool allow_EOF) {
+    int nb_read = 0;
     while (nb_read < len) {
         int rret = read(ctx.fd_read, buf + nb_read, len - nb_read);
+        nb_read += rret;
         if (rret < 0) {
             close_pipe();
             perror("[-] fail to read");
@@ -139,9 +141,8 @@ ssize_t read_message(char *buf, size_t len, bool allow_EOF) {
                 fprintf(stderr, "[-] EOF before end of read pipe\n");
                 exit(1);
             }
-            return nb_read;
+            break;
         }
-        nb_read += rret;
     }
     LOG1_dump("[+] %s read %u :", buf, nb_read, nb_read);
     return nb_read;

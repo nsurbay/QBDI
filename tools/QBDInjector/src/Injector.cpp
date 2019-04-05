@@ -2,16 +2,18 @@
 #include "Injector.h"
 
 #include <iostream>
-#include <argp.h>
-#include <unistd.h>
 #include <errno.h>
+#if defined(QBDI_OS_WIN)
+#include "getopt.h"
+#else
+#include <getopt.h>
+#endif
 
 
 namespace QBDInjector {
 
 const char DEFAULT_ENTRYPOINT[] =  "entrypoint";
 
-void help(int exit_value, char* arg0) __attribute__((noreturn));
 void help(int exit_value, char* arg0) {
     const char help_text[] =
         "%1$s [-v] [-p ARG] -i INJECT-LIBRARY [-n ENTRYPOINT] -a pid\n"

@@ -6,23 +6,33 @@
 set(FRIDA_INJECTOR_VERSION "12.3.2")
 set(FRIDA_INJECTOR_ARCH "${ARCH}")
 
-set(FRIDA_INJECTOR_SUFFIX "${OS}-${FRIDA_INJECTOR_ARCH}")
+if ("${OS}" STREQUAL "win")
+    set(FRIDA_INJECTOR_SUFFIX "windows-${FRIDA_INJECTOR_ARCH}.exe")
+    set(FRIDA_INJECTOR_NO_EXTRACT "y")
+    set(FRIDA_INJECTOR_UPDATE_CMD "<DOWNLOADED_FILE>" "x" "-y" "-o<SOURCE_DIR>")
+else()
+    set(FRIDA_INJECTOR_SUFFIX "${OS}-${FRIDA_INJECTOR_ARCH}.tar.xz")
+    set(FRIDA_INJECTOR_NO_EXTRACT "n")
+    set(FRIDA_INJECTOR_UPDATE_CMD "")
+endif()
 
 include(ExternalProject)
 
 # Frida Core
 # ==========
-set(FRIDA_CORE_URL     "https://github.com/frida/frida/releases/download/${FRIDA_INJECTOR_VERSION}/frida-core-devkit-${FRIDA_INJECTOR_VERSION}-${FRIDA_INJECTOR_SUFFIX}.tar.xz")
+set(FRIDA_CORE_URL     "https://github.com/frida/frida/releases/download/${FRIDA_INJECTOR_VERSION}/frida-core-devkit-${FRIDA_INJECTOR_VERSION}-${FRIDA_INJECTOR_SUFFIX}")
 set(FRIDA_CORE_PREFIX  "${CMAKE_CURRENT_BINARY_DIR}/frida-core")
 
 ExternalProject_Add(frida-core
-    URL               "${FRIDA_CORE_URL}"
-    PREFIX            "${FRIDA_CORE_PREFIX}"
-    BUILD_IN_SOURCE   1
-    UPDATE_COMMAND    ""
-    BUILD_COMMAND     ""
-    INSTALL_COMMAND   ""
-    CONFIGURE_COMMAND ""
+    URL                 "${FRIDA_CORE_URL}"
+    PREFIX              "${FRIDA_CORE_PREFIX}"
+    DOWNLOAD_NAME       "frida-core-devkit-${FRIDA_INJECTOR_VERSION}-${FRIDA_INJECTOR_SUFFIX}"
+    BUILD_IN_SOURCE     1
+    DOWNLOAD_NO_EXTRACT "${FRIDA_INJECTOR_NO_EXTRACT}"
+    UPDATE_COMMAND      ${FRIDA_INJECTOR_UPDATE_CMD}
+    BUILD_COMMAND       ""
+    INSTALL_COMMAND     ""
+    CONFIGURE_COMMAND   ""
 )
 
 ExternalProject_get_property(frida-core SOURCE_DIR)
@@ -65,6 +75,20 @@ target_include_directories(libfrida-core INTERFACE ${FRIDA_CORE_INCLUDE_DIR})
 #target_link_libraries(libfrida-gum INTERFACE ${FRIDA_GUM_LIBRARY})
 #target_include_directories(libfrida-gum INTERFACE ${FRIDA_GUM_INCLUDE_DIR})
 
+if ("${OS}" STREQUAL "win")
+    # include getopt for VS
+    ExternalProject_Add(vs_getopt
+        GIT_REPOSITORY      "https://github.com/skandhurkat/Getopt-for-Visual-Studio.git"
+        GIT_TAG             "2a6e4fb7f501b863c5bc32dd6e7277f110f1e14b"
+        CONFIGURE_COMMAND   ""
+        BUILD_COMMAND       ""
+        INSTALL_COMMAND     ""
+    )
+
+    ExternalProject_get_property(vs_getopt SOURCE_DIR)
+    set(VS_GETOPT_SOURCE_DIR "${SOURCE_DIR}")
+endif()
+
 
 ################
 ##  Injector  ##
@@ -74,15 +98,18 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s")
 
 set(Injector_SRC
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Injector.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Injector_${OS}.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/common_${OS}.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/Injector.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/Injector_${OS}.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/common_${OS}.c"
     )
 
 add_executable(Injector ${Injector_SRC})
 set_target_properties(Injector PROPERTIES OUTPUT_NAME "QBDInjector")
 target_link_libraries(Injector libfrida-core -ldl -lpthread -lresolv -lrt)
 target_include_directories(Injector PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+if ("${OS}" STREQUAL "win")
+    target_include_directories(Injector PRIVATE "${VS_GETOPT_SOURCE_DIR}")
+endif()
 
 install(TARGETS Injector DESTINATION bin COMPONENT QBDInjector)
 
