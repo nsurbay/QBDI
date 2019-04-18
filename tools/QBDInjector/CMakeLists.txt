@@ -97,37 +97,38 @@ endif()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s")
 
-set(Injector_SRC
+set(QBDInjector_SRC
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Injector.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Injector_${OS}.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/common_${OS}.c"
     )
 
-add_executable(Injector ${Injector_SRC})
-set_target_properties(Injector PROPERTIES OUTPUT_NAME "QBDInjector")
-target_link_libraries(Injector libfrida-core -ldl -lpthread -lresolv -lrt)
-target_include_directories(Injector PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+add_executable(QBDInjector ${QBDInjector_SRC})
+target_link_libraries(QBDInjector libfrida-core)
+target_include_directories(QBDInjector PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 if ("${OS}" STREQUAL "win")
-    target_include_directories(Injector PRIVATE "${VS_GETOPT_SOURCE_DIR}")
+    target_include_directories(QBDInjector PRIVATE "${VS_GETOPT_SOURCE_DIR}")
+    add_dependencies(QBDInjector vs_getopt)
+else()
+    target_link_libraries(QBDInjector -ldl -lpthread -lresolv -lrt)
 endif()
 
-install(TARGETS Injector DESTINATION bin COMPONENT QBDInjector)
+install(TARGETS QBDInjector DESTINATION bin COMPONENT QBDInjector)
 
 
 ################
 ##  Injected  ##
 ################
 
-set(Injected_SRC
+set(QBDInjected_SRC
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Injected.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Injected_${OS}.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/common_${OS}.c"
     )
 
-add_library(Injected ${Injected_SRC})
-set_target_properties(Injected PROPERTIES OUTPUT_NAME "QBDInjector")
-target_include_directories(Injected PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+add_library(QBDInjected ${QBDInjected_SRC})
+target_include_directories(QBDInjected PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-install(TARGETS Injected ARCHIVE DESTINATION lib COMPONENT QBDInjector)
+install(TARGETS QBDInjected ARCHIVE DESTINATION lib COMPONENT QBDInjector)
 
 install(FILES include/QBDInjector.h DESTINATION include/)
