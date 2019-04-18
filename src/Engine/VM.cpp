@@ -88,6 +88,11 @@ VMAction stopCallback(VMInstanceRef vm, GPRState* gprState, FPRState* fprState, 
     return VMAction::STOP;
 }
 
+bool VM::_qbdi_VMRunning = false;
+bool VM::qbdi_VMRunning() {
+    return _qbdi_VMRunning;
+}
+
 VM::VM(const std::string& cpu, const std::vector<std::string>& mattrs) :
     memoryLoggingLevel(0), memCBID(0), memReadGateCBID(VMError::INVALID_EVENTID), memWriteGateCBID(VMError::INVALID_EVENTID) {
     engine = new Engine(cpu, mattrs, this);
@@ -118,6 +123,30 @@ void VM::setFPRState(FPRState* fprState) {
     engine->setFPRState(fprState);
 }
 
+bool VM::getEnableAddrRet() {
+    return engine->getEnableAddrRet();
+}
+
+void VM::setEnableAddrRet(bool enable) {
+    engine->setEnableAddrRet(enable);
+}
+
+void VM::addExecBrokerNoRetAddr(rword addr) {
+    engine->addExecBrokerNoRetAddr(addr);
+}
+
+void VM::removeExecBrokerNoRetAddr(rword addr) {
+    engine->removeExecBrokerNoRetAddr(addr);
+}
+
+rword VM::addTrampolineCB(InstCallback cbk, void* data) {
+    return engine->addTrampolineCB(cbk, data);
+}
+
+void VM::removeTrampolineCB(rword addr) {
+    engine->removeTrampolineCB(addr);
+}
+
 void VM::addInstrumentedRange(rword start, rword end) {
     RequireAction("VM::addInstrumentedRange", start < end, return);
     engine->addInstrumentedRange(start, end);
@@ -133,6 +162,10 @@ bool VM::addInstrumentedModuleFromAddr(rword addr) {
 
 bool VM::instrumentAllExecutableMaps() {
     return engine->instrumentAllExecutableMaps();
+}
+
+bool VM::isInstrumented(rword addr) {
+    return engine->isInstrumented(addr);
 }
 
 void VM::removeInstrumentedRange(rword start, rword end) {
@@ -303,6 +336,17 @@ uint32_t VM::addVMEventCB(VMEvent mask, VMCallback cbk, void *data) {
     RequireAction("VM::addVMEventCB", mask != 0, return VMError::INVALID_EVENTID);
     RequireAction("VM::addVMEventCB", cbk != nullptr, return VMError::INVALID_EVENTID);
     return engine->addVMEventCB(mask, cbk, data);
+}
+
+uint32_t VM::addExecBrokerCB(rword start, rword end, VMCallback cbk, void *data) {
+    RequireAction("VM::addExecBrokerCB", cbk != nullptr, return VMError::INVALID_EVENTID);
+    RequireAction("VM::addExecBrokerCB", start < end, return VMError::INVALID_EVENTID);
+    return engine->addExecBrokerCB(start, end, cbk, data);
+}
+
+uint32_t VM::addExecBrokerAddrCB(rword addr, VMCallback cbk, void *data) {
+    RequireAction("VM::addExecBrokerAddrCB", cbk != nullptr, return VMError::INVALID_EVENTID);
+    return addExecBrokerCB(addr, addr + 1, cbk, data);
 }
 
 bool VM::deleteInstrumentation(uint32_t id) {

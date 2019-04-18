@@ -27,10 +27,13 @@
 #include "State.h"
 #include "InstAnalysis.h"
 
+
 #ifdef __cplusplus
 namespace QBDI {
 extern "C" {
 #endif
+
+QBDI_EXPORT bool qbdi_VMRunning();
 
 
 /*! Create and initialize a VM instance.
@@ -48,6 +51,66 @@ QBDI_EXPORT void qbdi_initVM(VMInstanceRef* instance, const char* cpu, const cha
  * @param[in] instance VM instance.
  */
 QBDI_EXPORT void qbdi_terminateVM(VMInstanceRef instance);
+
+/*! Get if ExecBroker try to change return addr
+ *
+ * @param[in] instance VM instance.
+ * @return  Status of ExecBroker
+ */
+QBDI_EXPORT bool qbdi_getEnableAddrRet(VMInstanceRef instance);
+
+/*! Add a address where ExecBroker will not instrument return point
+ *
+ * @param[in] instance VM instance.
+ * @param[in] addr  address to not instrument return point
+ *
+ */
+QBDI_EXPORT void qbdi_addExecBrokerNoRetAddr(VMInstanceRef instance, rword addr);
+
+/*! Remove a address of previous method.
+ *
+ * ExecBroker will try to found a return address
+ *
+ * @param[in] instance VM instance.
+ * @param[in] addr  address to not instrument return point
+ *
+ */
+QBDI_EXPORT void qbdi_removeExecBrokerNoRetAddr(VMInstanceRef instance, rword addr);
+
+/*! Get a trampoline address for ExecBroker
+ *
+ * Place this address on not instrumented code. When this address is use,
+ * ExecBroker will return and call the setting callback
+ *
+ * /!\ The callback need to set a correct PC to continue the execution
+ *
+ * @param[in] instance VM instance.
+ * @param[in] addr  address to not instrument return point
+ * @return  Address of the trampoline, may be null if no more is available
+ *
+ */
+QBDI_EXPORT rword qbdi_addTrampolineCB(VMInstanceRef instance, InstCallback cbk, void* data);
+
+/*! Mark a Trampoline as unused
+ *
+ * /!\ The trampoline will be reused for other usage, make sure that is address
+ *     has been remove anywhere
+ *
+ * @param[in] instance VM instance.
+ * @param[in] addr  address to not instrument return point
+ *
+ */
+QBDI_EXPORT void qbdi_removeTrampolineCB(VMInstanceRef instance, rword addr);
+
+/*! Set if ExecBroker try to change return addr
+ *
+ * @param[in] instance VM instance.
+ * @param[in] enable  state to set
+ *
+ * if set to False, return address must be add as breakpoint by user
+ *
+ */
+QBDI_EXPORT void qbdi_setEnableAddrRet(VMInstanceRef instance, bool enable);
 
 /*! Add an address range to the set of instrumented address ranges.
  *
@@ -83,6 +146,15 @@ QBDI_EXPORT bool qbdi_addInstrumentedModuleFromAddr(VMInstanceRef instance, rwor
  * @return  True if at least one range was added to the instrumented ranges.
  */
 QBDI_EXPORT bool qbdi_instrumentAllExecutableMaps(VMInstanceRef instance);
+
+/*! Return if an address is intrumented
+ *
+ * @param[in] instance VM instance.
+ * @param[in] addr  An address to check
+ *
+ * @return  True if address is instrumented.
+ */
+QBDI_EXPORT bool qbdi_isInstrumented(VMInstanceRef instance, rword addr);
 
 /*! Remove an address range from the set of instrumented address ranges.
  *
@@ -312,6 +384,31 @@ QBDI_EXPORT uint32_t qbdi_addCodeRangeCB(VMInstanceRef instance, rword start, rw
  * in case of failure).
  */
 QBDI_EXPORT uint32_t qbdi_addVMEventCB(VMInstanceRef instance, VMEvent mask, VMCallback cbk, void *data);
+
+/*! Register a callback event when ExecBroker exit to a specific address range
+ *
+ * @param[in] instance  VM instance.
+ * @param[in] start begin of address range
+ * @param[in] end   exclusive end of address range
+ * @param[in] cbk  A function pointer to the callback.
+ * @param[in] data User defined data passed to the callback.
+ *
+ * @return The id of the registered instrumentation (or VMError::INVALID_EVENTID
+ * in case of failure).
+ */
+QBDI_EXPORT uint32_t qbdi_addExecBrokerCB(VMInstanceRef instance, rword start, rword end, VMCallback cbk, void *data);
+
+/*! Register a callback event when ExecBroker exit to a specific address range
+ *
+ * @param[in] instance  VM instance.
+ * @param[in] addr address to hooked
+ * @param[in] cbk  A function pointer to the callback.
+ * @param[in] data User defined data passed to the callback.
+ *
+ * @return The id of the registered instrumentation (or VMError::INVALID_EVENTID
+ * in case of failure).
+ */
+QBDI_EXPORT uint32_t qbdi_addExecBrokerAddrCB(VMInstanceRef instance, rword addr, VMCallback cbk, void *data);
 
 /*! Remove an instrumentation.
  *

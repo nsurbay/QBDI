@@ -23,6 +23,10 @@
 
 namespace QBDI {
 
+bool qbdi_VMRunning() {
+    return QBDI::VM::qbdi_VMRunning();
+}
+
 void qbdi_initVM(VMInstanceRef* instance, const char* cpu, const char** mattrs) {
     RequireAction("VM_C::initVM", instance, return);
 
@@ -49,6 +53,36 @@ void qbdi_terminateVM(VMInstanceRef instance) {
     delete (VM*) instance;
 }
 
+bool qbdi_getEnableAddrRet(VMInstanceRef instance) {
+    RequireAction("VM_C::getEnableAddrRet", instance, return false);
+    return ((VM*)instance)->getEnableAddrRet();
+}
+
+void qbdi_setEnableAddrRet(VMInstanceRef instance, bool enable) {
+    RequireAction("VM_C::setEnableAddrRet", instance, return);
+    ((VM*)instance)->setEnableAddrRet(enable);
+}
+
+void qbdi_addExecBrokerNoRetAddr(VMInstanceRef instance, rword addr) {
+    RequireAction("VM_C::addExecBrokerNoRetAddr", instance, return);
+    ((VM*)instance)->addExecBrokerNoRetAddr(addr);
+}
+
+void qbdi_removeExecBrokerNoRetAddr(VMInstanceRef instance, rword addr) {
+    RequireAction("VM_C::removeExecBrokerNoRetAddr", instance, return);
+    ((VM*)instance)->removeExecBrokerNoRetAddr(addr);
+}
+
+rword qbdi_addTrampolineCB(VMInstanceRef instance, InstCallback cbk, void* data) {
+    RequireAction("VM_C::addTrampolineCB", instance, return 0);
+    return ((VM*)instance)->addTrampolineCB(cbk, data);
+}
+
+void qbdi_removeTrampolineCB(VMInstanceRef instance, rword addr) {
+    RequireAction("VM_C::removeTrampolineCB", instance, return);
+    ((VM*)instance)->removeTrampolineCB(addr);
+}
+
 void qbdi_addInstrumentedRange(VMInstanceRef instance, rword start, rword end) {
     RequireAction("VM_C::addInstrumentedRange", instance, return);
     ((VM*)instance)->addInstrumentedRange(start, end);
@@ -67,6 +101,11 @@ bool qbdi_addInstrumentedModuleFromAddr(VMInstanceRef instance, rword addr) {
 bool qbdi_instrumentAllExecutableMaps(VMInstanceRef instance) {
     RequireAction("VM_C::instrumentAllExecutableMaps", instance, return false);
     return ((VM*)instance)->instrumentAllExecutableMaps();
+}
+
+bool qbdi_isInstrumented(VMInstanceRef instance, rword addr) {
+    RequireAction("VM_C::isInstrumented", instance, return false);
+    return ((VM*)instance)->isInstrumented(addr);
 }
 
 void qbdi_removeInstrumentedRange(VMInstanceRef instance, rword start, rword end) {
@@ -171,6 +210,16 @@ uint32_t qbdi_addMemRangeCB(VMInstanceRef instance, rword start, rword end, Memo
 uint32_t qbdi_addVMEventCB(VMInstanceRef instance, VMEvent mask, VMCallback cbk, void *data) {
     RequireAction("VM_C::addVMEventCB", instance, return VMError::INVALID_EVENTID);
     return ((VM*) instance)->addVMEventCB(mask, cbk, data);
+}
+
+uint32_t qbdi_addExecBrokerCB(VMInstanceRef instance, rword start, rword end, VMCallback cbk, void *data) {
+    RequireAction("VM_C::addVMEventCB", instance, return VMError::INVALID_EVENTID);
+    return ((VM*) instance)->addExecBrokerCB(start, end, cbk, data);
+}
+
+uint32_t qbdi_addExecBrokerAddrCB(VMInstanceRef instance, rword addr, VMCallback cbk, void *data) {
+    RequireAction("VM_C::addVMEventCB", instance, return VMError::INVALID_EVENTID);
+    return ((VM*) instance)->addExecBrokerCB(addr, addr + 1, cbk, data);
 }
 
 bool qbdi_deleteInstrumentation(VMInstanceRef instance, uint32_t id) {

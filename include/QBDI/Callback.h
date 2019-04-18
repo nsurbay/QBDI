@@ -79,6 +79,7 @@ typedef enum {
     _QBDI_EI(SYSCALL_ENTRY)         = 1<<7, /*!< Not implemented.*/
     _QBDI_EI(SYSCALL_EXIT)          = 1<<8, /*!< Not implemented.*/
     _QBDI_EI(SIGNAL)                = 1<<9, /*!< Not implemented.*/
+    _QBDI_EI(EXEC_TRANSFER_MISSING_RET) = 1<<10, /*!< Triggered when no return address was found for ExecBroker.*/
 } VMEvent;
 
 _QBDI_ENABLE_BITMASK_OPERATORS(VMEvent)

@@ -114,7 +114,7 @@ Engine::Engine(const std::string& _cpu, const std::vector<std::string>& _mattrs,
     // Allocate QBDI classes
     assembly = new Assembly(*MCTX, std::move(MAB), *MCII, *processTarget, *MSTI);
     blockManager = new ExecBlockManager(*MCII, *MRI, *assembly, vminstance);
-    execBroker = new ExecBroker(*assembly, vminstance);
+    execBroker = new ExecBroker(*assembly, vminstance, *MCII, *MRI);
 
     // Get default Patch rules for this architecture
     patchRules = getDefaultPatchRules();
@@ -179,6 +179,30 @@ bool Engine::isPreInst() const {
     return curExecBlock->getInstAddress(instID) == QBDI_GPR_GET(getGPRState(), REG_PC);
 }
 
+bool Engine::getEnableAddrRet() {
+    return execBroker->getEnableAddrRet();
+}
+
+void Engine::setEnableAddrRet(bool enable) {
+    execBroker->setEnableAddrRet(enable);
+}
+
+void Engine::addExecBrokerNoRetAddr(rword addr) {
+    execBroker->addNoRetAddr(addr);
+}
+
+void Engine::removeExecBrokerNoRetAddr(rword addr) {
+    execBroker->removeNoRetAddr(addr);
+}
+
+rword Engine::addTrampolineCB(InstCallback cbk, void* data) {
+    return execBroker->addTrampolineCB(cbk, data);
+}
+
+void Engine::removeTrampolineCB(rword addr) {
+    execBroker->removeTrampolineCB(addr);
+}
+
 void Engine::addInstrumentedRange(rword start, rword end) {
     execBroker->addInstrumentedRange(Range<rword>(start, end));
 }
@@ -193,6 +217,10 @@ bool Engine::addInstrumentedModuleFromAddr(rword addr) {
 
 bool Engine::instrumentAllExecutableMaps() {
     return execBroker->instrumentAllExecutableMaps();
+}
+
+bool Engine::isInstrumented(rword addr) {
+    return execBroker->isInstrumented(addr);
 }
 
 void Engine::removeInstrumentedRange(rword start, rword end) {
@@ -325,14 +353,62 @@ bool Engine::run(rword start, rword stop) {
     // Execute basic block per basic block
     do {
         // If this PC is not instrumented try to transfer execution
-        if(execBroker->isInstrumented(currentPC) == false &&
-           execBroker->canTransferExecution(curGPRState)) {
+        bool toVM = execBroker->isInstrumented(currentPC);
+
+        if(!toVM && !execBroker->canTransferExecution(curGPRState)) {
+            switch(signalEvent(EXEC_TRANSFER_MISSING_RET, currentPC, curGPRState, curFPRState)) {
+                case CONTINUE:
+                    break;
+                case BREAK_TO_VM:
+                    currentPC = QBDI_GPR_GET(curGPRState, REG_PC);
+                    LogDebug("Engine::run", "Next address to execute is 0x%" PRIRWORD, currentPC);
+                    continue;
+                case STOP:
+                    *gprState = *curGPRState;
+                    *fprState = *curFPRState;
+                    curGPRState = gprState.get();
+                    curFPRState = fprState.get();
+                    return hasRan;
+            }
+
+            toVM = execBroker->isInstrumented(currentPC) || !execBroker->canTransferExecution(curGPRState);
+        }
+
+        if(!toVM) {
             curExecBlock = nullptr;
             LogDebug("Engine::run", "Executing 0x%" PRIRWORD " through execBroker", currentPC);
             // transfer execution
-            signalEvent(EXEC_TRANSFER_CALL, currentPC, curGPRState, curFPRState);
+            switch(signalEvent(EXEC_TRANSFER_CALL, currentPC, curGPRState, curFPRState)) {
+                case CONTINUE:
+                    break;
+                case BREAK_TO_VM:
+                    currentPC = QBDI_GPR_GET(curGPRState, REG_PC);
+                    LogDebug("Engine::run", "Next address to execute is 0x%" PRIRWORD, currentPC);
+                    continue;
+                case STOP:
+                    *gprState = *curGPRState;
+                    *fprState = *curFPRState;
+                    curGPRState = gprState.get();
+                    curFPRState = fprState.get();
+                    return hasRan;
+            }
+
             execBroker->transferExecution(currentPC, curGPRState, curFPRState);
-            signalEvent(EXEC_TRANSFER_RETURN, currentPC, curGPRState, curFPRState);
+
+            switch(signalEvent(EXEC_TRANSFER_RETURN, currentPC, curGPRState, curFPRState)) {
+                case CONTINUE:
+                    break;
+                case BREAK_TO_VM:
+                    currentPC = QBDI_GPR_GET(curGPRState, REG_PC);
+                    LogDebug("Engine::run", "Next address to execute is 0x%" PRIRWORD, currentPC);
+                    continue;
+                case STOP:
+                    *gprState = *curGPRState;
+                    *fprState = *curFPRState;
+                    curGPRState = gprState.get();
+                    curFPRState = fprState.get();
+                    return hasRan;
+            }
         }
         // Else execute through DBI
         else {
@@ -373,7 +449,20 @@ bool Engine::run(rword start, rword stop) {
             if ((curExecBlock->getSeqType(curExecBlock->getCurrentSeqID()) & SeqType::Entry) > 0) {
                 event |= BASIC_BLOCK_ENTRY;
             }
-            signalEvent(event, currentPC, curGPRState, curFPRState);
+            switch(signalEvent(event, currentPC, curGPRState, curFPRState)) {
+                case CONTINUE:
+                    break;
+                case BREAK_TO_VM:
+                    currentPC = QBDI_GPR_GET(curGPRState, REG_PC);
+                    LogDebug("Engine::run", "Next address to execute is 0x%" PRIRWORD, currentPC);
+                    continue;
+                case STOP:
+                    *gprState = *curGPRState;
+                    *fprState = *curFPRState;
+                    curGPRState = gprState.get();
+                    curFPRState = fprState.get();
+                    return hasRan;
+            }
 
             // Execute
             hasRan = true;
@@ -394,7 +483,20 @@ bool Engine::run(rword start, rword stop) {
             if ((curExecBlock->getSeqType(curExecBlock->getCurrentSeqID()) & SeqType::Exit) > 0) {
                 event |= BASIC_BLOCK_EXIT;
             }
-            signalEvent(event, currentPC, curGPRState, curFPRState);
+            switch(signalEvent(event, currentPC, curGPRState, curFPRState)) {
+                case CONTINUE:
+                    break;
+                case BREAK_TO_VM:
+                    currentPC = QBDI_GPR_GET(curGPRState, REG_PC);
+                    LogDebug("Engine::run", "Next address to execute is 0x%" PRIRWORD, currentPC);
+                    continue;
+                case STOP:
+                    *gprState = *curGPRState;
+                    *fprState = *curFPRState;
+                    curGPRState = gprState.get();
+                    curFPRState = fprState.get();
+                    return hasRan;
+            }
         }
         // Get next block PC
         currentPC = QBDI_GPR_GET(curGPRState, REG_PC);
@@ -428,17 +530,27 @@ uint32_t Engine::addInstrRule(InstrRule rule) {
 uint32_t Engine::addVMEventCB(VMEvent mask, VMCallback cbk, void *data) {
     uint32_t id = vmCallbacksCounter++;
     RequireAction("Engine::addVMEventCB", id < EVENTID_VM_MASK, return VMError::INVALID_EVENTID);
-    vmCallbacks.push_back(std::make_pair(id, CallbackRegistration {mask, cbk, data}));
+    vmCallbacks.push_back(std::make_pair(id, CallbackRegistration {mask, Range<rword>(0, -1), cbk, data}));
     return id | EVENTID_VM_MASK;
 }
 
-void Engine::signalEvent(VMEvent event, rword currentPC, GPRState *gprState, FPRState *fprState) {
+uint32_t Engine::addExecBrokerCB(rword start, rword end, VMCallback cbk, void *data) {
+    uint32_t id = vmCallbacksCounter++;
+    RequireAction("Engine::addExecBrokerCB", id < EVENTID_VM_MASK, return VMError::INVALID_EVENTID);
+    vmCallbacks.push_back(std::make_pair(id, CallbackRegistration {EXEC_TRANSFER_CALL, Range<rword>(start, end), cbk, data}));
+    return id | EVENTID_VM_MASK;
+}
+
+
+VMAction Engine::signalEvent(VMEvent event, rword currentPC, GPRState *gprState, FPRState *fprState) {
     static VMState vmState;
     static rword lastUpdatePC = 0;
+    VMAction action = CONTINUE;
+    VMAction action_tmp;
 
     for(const auto& item : vmCallbacks) {
         const QBDI::CallbackRegistration& r = item.second;
-        if(event & r.mask) {
+        if(event & r.mask && r.pcRangeNeeded.contains(currentPC)) {
             if(lastUpdatePC != currentPC) {
                 lastUpdatePC = currentPC;
                 if(curExecBlock != nullptr) {
@@ -453,9 +565,51 @@ void Engine::signalEvent(VMEvent event, rword currentPC, GPRState *gprState, FPR
                 }
             }
             vmState.event = event;
-            r.cbk(vminstance, &vmState, gprState, fprState, r.data);
+            LogDebug("Engine::signalEvent", "Callback 0x%" PRIRWORD " call for event 0x%x (mask 0x%x)",
+                    r.cbk, event, r.mask);
+
+            action_tmp = r.cbk(vminstance, &vmState, gprState, fprState, r.data);
+
+            LogCallback(LogPriority::DEBUG, "Engine::signalEvent", [&] (FILE *log) -> void {
+                const char* name;
+                switch (action_tmp) {
+                    case CONTINUE:
+                        name = "CONTINUE";
+                        break;
+                    case BREAK_TO_VM:
+                        name = "BREAK_TO_VM";
+                        break;
+                    case STOP:
+                        name = "STOP";
+                        break;
+                    default:
+                        name = "UNKNOW";
+                }
+                fprintf(log, "Callback 0x%" PRIRWORD " result : %s", r.cbk, name);
+            });
+
+            if (action_tmp > action)
+                action = action_tmp;
         }
     }
+    LogCallback(LogPriority::DEBUG, "Engine::signalEvent", [&] (FILE *log) -> void {
+        const char* name;
+        switch (action) {
+            case CONTINUE:
+                name = "CONTINUE";
+                break;
+            case BREAK_TO_VM:
+                name = "BREAK_TO_VM";
+                break;
+            case STOP:
+                name = "STOP";
+                break;
+            default:
+                name = "UNKNOW";
+        }
+        fprintf(log, "Result VMCallback : %s", name);
+    });
+    return action;
 }
 
 bool Engine::deleteInstrumentation(uint32_t id) {

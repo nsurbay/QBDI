@@ -41,6 +41,7 @@
 #include "InstAnalysis.h"
 #include "State.h"
 #include "Patch/Types.h"
+#include "Range.h"
 
 namespace QBDI {
 
@@ -58,6 +59,7 @@ const static uint16_t MEM_VALUE_TAG         = 0xfff2;
 
 struct CallbackRegistration {
     VMEvent    mask;
+    Range<rword> pcRangeNeeded;
     VMCallback cbk;
     void*      data;
 };
@@ -99,7 +101,7 @@ private:
     void instrument(std::vector<Patch> &basicBlock);
     void handleNewBasicBlock(rword pc);
 
-    void signalEvent(VMEvent kind, rword currentBasicBlock, GPRState *gprState, FPRState *fprState);
+    VMAction signalEvent(VMEvent kind, rword currentBasicBlock, GPRState *gprState, FPRState *fprState);
 
 public:
 
@@ -137,6 +139,59 @@ public:
      */
     void        setFPRState(FPRState* fprState);
 
+    /*! Get if ExecBroker try to change return addr
+     *
+     */
+    bool         getEnableAddrRet();
+
+    /*! Set if ExecBroker try to change return addr
+     *
+     * @param[in] enable  state to set
+     *
+     * if set to False, return address must be add as breakpoint by user
+     *
+     */
+    void         setEnableAddrRet(bool enable);
+
+    /*! Add a address where ExecBroker will not instrument return point
+     *
+     * @param[in] addr  address to not instrument return point
+     *
+     */
+    void        addExecBrokerNoRetAddr(rword addr);
+    
+    /*! Remove a address of previous method.
+     *
+     * ExecBroker will try to found a return address
+     *
+     * @param[in] addr  address to not instrument return point
+     *
+     */
+    void        removeExecBrokerNoRetAddr(rword addr);
+
+    /*! Get a trampoline address for ExecBroker
+     *
+     * Place this address on not instrumented code. When this address is use,
+     * ExecBroker will return and call the setting callback
+     *
+     * /!\ The callback need to set a correct PC to continue the execution
+     *
+     * @param[in] addr  address to not instrument return point
+     * @return  Address of the trampoline, may be null if no more is available
+     *
+     */
+    rword       addTrampolineCB(InstCallback cbk, void* data);
+
+    /*! Mark a Trampoline as unused
+     *
+     * /!\ The trampoline will be reused for other usage, make sure that is address
+     *     has been remove anywhere
+     *
+     * @param[in] addr  address to not instrument return point
+     *
+     */
+    void        removeTrampolineCB(rword addr);
+
     /*! Add an address range to the set of instrumented address ranges.
      *
      * @param[in] start  Start address of the range (included).
@@ -163,6 +218,12 @@ public:
      * @return  True if at least one range was added to the instrumented ranges.
      */
     bool         instrumentAllExecutableMaps();
+    /*! Return if an address is intrumented
+     *
+     * @param[in] addr  An address to check
+     * @return  True if address is instrumented.
+     */
+    bool         isInstrumented(rword addr);
 
     /*! Remove an address range to the set from instrumented address ranges.
      *
@@ -217,6 +278,18 @@ public:
      * in case of failure).
      */
     uint32_t    addVMEventCB(VMEvent mask, VMCallback cbk, void *data);
+
+    /*! Register a callback event when ExecBroker exit to a specific address range
+     *
+     * @param[in] start begin of address range
+     * @param[in] end   exclusive end of address range
+     * @param[in] cbk  A function pointer to the callback.
+     * @param[in] data User defined data passed to the callback.
+     *
+     * @return The id of the registered instrumentation (or VMError::INVALID_EVENTID
+     * in case of failure).
+     */
+    uint32_t    addExecBrokerCB(rword start, rword end, VMCallback cbk, void *data);
 
     /*! Remove an instrumentation.
      *

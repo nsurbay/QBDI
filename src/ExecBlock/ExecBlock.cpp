@@ -23,6 +23,7 @@
 #include "Memory.h"
 #include "Utility/LogSys.h"
 #include "Utility/System.h"
+#include "QBDI/VM.h"
 
 #if defined(QBDI_OS_WIN)
     #if defined(QBDI_ARCH_X86_64)
@@ -166,14 +167,16 @@ void ExecBlock::selectSeq(uint16_t seqID) {
     context->hostState.selector = (rword) codeBlock.base() + (rword) instRegistry[seqRegistry[seqID].startInstID].offset;
 }
 
-void ExecBlock::run() {
+void ExecBlock::run(bool set_qbdi_VMRunning) {
     // Pages are RWX on iOS
 #ifndef QBDI_OS_IOS
     makeRX();
 #else
     llvm::sys::Memory::InvalidateInstructionCache(codeBlock.base(), codeBlock.size());
 #endif // QBDI_OS_IOS
+    QBDI::VM::_qbdi_VMRunning = set_qbdi_VMRunning;
     runCodeBlockFct(codeBlock.base());
+    QBDI::VM::_qbdi_VMRunning = false;
 }
 
 VMAction ExecBlock::execute() {
