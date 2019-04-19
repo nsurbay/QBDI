@@ -1,35 +1,132 @@
 
 #include <string.h>
+#include <windows.h>
+#include <TlHelp32.h>
+#include <winbase.h>
 
 #include "Injected.h"
 
-//void __main_linux_entrypoint();
+static struct _win_Injected_ctx {
+    void* thread_ctx_buff;
+    CONTEXT *thread_ctx;
+} ctx;
+
+void __main_windows_entrypoint();
+
+int get_maintid(int pid) {
+    bool valid = true;
+    THREADENTRY32 th32;
+    th32.dwSize = sizeof(THREADENTRY32);
+
+    HANDLE hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (hThreadSnap == INVALID_HANDLE_VALUE) {
+        return -1;
+    }
+    for(valid = Thread32First(hThreadSnap, &th32); valid; valid = Thread32Next(hThreadSnap, &th32)) {
+        if (th32.th32OwnerProcessID == pid) {
+            CloseHandle(hThreadSnap);
+            return th32.th32ThreadID;
+        }
+    }
+    CloseHandle(hThreadSnap);
+    return -1;
+}
 
 void prepare_inject(int res) {
+    LOG1("[+] create virtual stack ...\n");
+    void* page = VirtualAlloc(NULL, STACK_SIZE, MEM_COMMIT, PAGE_READWRITE);
+    if (page == NULL) {
+        perror("[-] VirtualAlloc failled ...");
+        goto fail1;
+    }
 
-//    // prepare page to trigger sighandler
-//    void* page = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-//    if (page == MAP_FAILED) {
-//        perror("[-] mmap failled ...");
-//        int stop = QBDINJECTOR_STOP;
-//        send_message((char*) &stop, sizeof(int));
-//        close_pipe();
-//        return;
-//    }
-//
-//#if defined(QBDI_ARCH_X86)
-//    rword stack = ((rword) page) + STACK_SIZE - 4;
-//#else
-//    rword stack = ((rword) page) + STACK_SIZE - 8;
-//#endif
-//
-//    // inform injection
-//    send_message((char*) &res, sizeof(int));
-//    // send new executive address
-//    rword new_entrypoint_addr = (rword) &__main_linux_entrypoint;
-//    send_message(((char*) &new_entrypoint_addr), sizeof(rword));
-//    // send new stack address
-//    send_message((char*) &stack, sizeof(rword));
+#if defined(QBDI_ARCH_X86)
+    rword stack = ((rword) page) + STACK_SIZE - 4;
+#else
+    rword stack = ((rword) page) + STACK_SIZE - 8;
+#endif
+
+    LOG1("[+] get main thread id ...\n");
+    int maintid = get_maintid(GetCurrentProcessId());
+
+    if (maintid < 0) {
+        fprintf(stderr, "[-] Fail to find main tid\n");
+        goto fail1;
+    }
+
+    LOG1("[+] main thread id : %d\n", maintid);
+    HANDLE MainThread = OpenThread(THREAD_ALL_ACCESS, TRUE, maintid);
+    if (MainThread == NULL) {
+        fprintf(stderr, "[-] Fail to OpenThread on tid %d (error: %d)\n", maintid, GetLastError());
+        goto fail1;
+    }
+
+    int contextSize = 0;
+
+    // https://docs.microsoft.com/en-us/windows/desktop/Debug/working-with-xstate-context
+    LOG1("[+] get main thread context ...\n");
+    if (InitializeContext(NULL, CONTEXT_ALL | CONTEXT_XSTATE, NULL, &contextSize) ||
+            GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+        fprintf(stderr, "[-] Fail to get size of context (error: %d)\n", GetLastError());
+        goto fail2;
+    }
+
+    ctx.thread_ctx_buff = malloc(contextSize);
+    void* modified_ctx_buff = malloc(contextSize);
+    if (ctx.thread_ctx_buff == NULL || modified_ctx_buff == NULL) {
+        fprintf(stderr, "[-] Fail to get size of context\n");
+        goto fail2;
+    }
+
+    CONTEXT* modified_ctx;
+    int contextSize2 = contextSize;
+    if (!InitializeContext(ctx.thread_ctx_buff, CONTEXT_ALL | CONTEXT_XSTATE, &ctx.thread_ctx, &contextSize) ||
+            !InitializeContext(modified_ctx_buff, CONTEXT_ALL | CONTEXT_XSTATE, &modified_ctx, &contextSize2)) {
+        fprintf(stderr, "[-] Fail to get size of context (error: %d)\n", GetLastError());
+        goto fail2;
+    }
+    if (contextSize2 != contextSize) {
+        // may never append
+        fprintf(stderr, "[-] ContextSize error (error: %d)\n", GetLastError());
+        goto fail2;
+    }
+
+    if (!SetXStateFeaturesMask(ctx.thread_ctx, XSTATE_MASK_AVX)) {
+        fprintf(stderr, "[-] Fail to set AVX mask (error: %d)\n", GetLastError());
+        goto fail2;
+    }
+
+    if (!GetThreadContext(MainThread, ctx.thread_ctx)) {
+        fprintf(stderr, "[-] Fail to get context (error: %d)\n", GetLastError());
+        goto fail2;
+    }
+
+    // copy context to a new buffer to modify it;
+    memcpy(modified_ctx, ctx.thread_ctx, contextSize);
+
+    // modify main thread
+    LOG1("[+] modify main thread context ...\n");
+    modified_ctx->Rsp = stack;
+    modified_ctx->Rip = (rword) &__main_windows_entrypoint;
+
+    if (!SetThreadContext(MainThread, modified_ctx)) {
+        fprintf(stderr, "[-] Fail to set context (error: %d)\n", GetLastError());
+        goto fail2;
+    }
+    free(modified_ctx_buff);
+    CloseHandle(MainThread);
+
+    // inform injection and return
+    send_message((char*) &res, sizeof(int));
+    return;
+
+fail2:
+    CloseHandle(MainThread);
+fail1:
+    int stop = QBDINJECTOR_STOP;
+    send_message((char*) &stop, sizeof(int));
+    close_pipe();
+    return;
 }
 
 //void ptrace_to_GPRState(const struct user_regs_struct* gprCtx, GPRState* gprState) {
@@ -81,8 +178,9 @@ void prepare_inject(int res) {
 //#error "Not Implemented"
 //#endif
 //}
-//
-//void __main_linux_entrypoint() {
+
+void __main_windows_entrypoint() {
+    LOG1("[+] Hello from main thread ...\n");
 //    GPRState gprState = {0};
 //    FPRState fprState = {0};
 //    struct user_regs_struct origin_regs;
@@ -146,7 +244,7 @@ void prepare_inject(int res) {
 //
 //    qbdinjector_on_entrypoint(vm, start, stop);
 //
-//    exit(0);
-//}
-//
-//
+    exit(0);
+}
+
+

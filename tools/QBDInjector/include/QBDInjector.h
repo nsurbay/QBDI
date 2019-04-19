@@ -9,6 +9,10 @@ namespace QBDInjector {
 extern "C" {
 #endif
 
+#if defined(QBDI_OS_WIN)
+#pragma comment(linker, "/export:_qbdinjector_frida_entrypoint")
+#endif
+
 /*
  * method called in frida injected thread
  */

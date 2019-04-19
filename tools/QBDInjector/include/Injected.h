@@ -5,7 +5,7 @@
 #include "QBDInjector.h"
 
 #ifdef _QBDI_DEBUG
-#define LOG1(...) if (arg->verbose >= 1) {fprintf(stderr, __VA_ARGS__);}
+#define LOG1(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define LOG1(...)
 #endif

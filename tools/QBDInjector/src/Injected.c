@@ -14,6 +14,7 @@ _qbdinjector_frida_entrypoint(const char* msg, bool* stay_resident) {
 
     *stay_resident = true;
 
+    LOG1("[+] call qbdinjector_frida_earlyinit ...\n");
     int res = qbdinjector_frida_earlyinit(msg, stay_resident);
     if (res)
         return;
@@ -38,6 +39,7 @@ _qbdinjector_frida_entrypoint(const char* msg, bool* stay_resident) {
     read_message(parameter, len_parameter, false);
     parameter[len_parameter] = '\0';
 
+    LOG1("[+] call qbdinjector_frida_init ...\n");
     res = qbdinjector_frida_init(parameter);
 
     if (!(res & QBDINJECTOR_STOP) && res & QBDINJECTOR_INJECT) {
