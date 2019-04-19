@@ -10,7 +10,7 @@
 
 namespace QBDInjector {
 
-void wait_end_child(struct arguments* arg) {
+void wait_end_child(Arguments* arg) {
     int res;
     while (0 == (res = kill(arg->pid, 0))) {
         usleep(100);
@@ -21,7 +21,7 @@ void wait_end_child(struct arguments* arg) {
     }
 }
 
-int setup_inject(FridaDevice* device, struct arguments* arg) {
+int setup_inject(FridaDevice* device, Arguments* arg) {
 
     GError* error = nullptr;
 
