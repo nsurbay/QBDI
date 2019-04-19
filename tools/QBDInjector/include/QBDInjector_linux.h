@@ -8,8 +8,6 @@ extern "C" {
 #endif
 
 
-static const size_t STACK_SIZE = 8388608;
-
 #if defined(QBDI_ARCH_X86)
 #define QBDI_PTRACE_GETFREG PTRACE_GETFPXREGS
 typedef struct user_fpxregs_struct user_floatingregister_struct;

@@ -9,8 +9,8 @@ set(FRIDA_INJECTOR_ARCH "${ARCH}")
 if ("${OS}" STREQUAL "win")
     set(FRIDA_INJECTOR_SUFFIX "windows-${FRIDA_INJECTOR_ARCH}.exe")
     set(FRIDA_INJECTOR_CUSTOM_OPT
-        FRIDA_INJECTOR_NO_EXTRACT "y"
-        FRIDA_INJECTOR_UPDATE_CMD "<DOWNLOADED_FILE>" "x" "-y" "-o<SOURCE_DIR>")
+        DOWNLOAD_NO_EXTRACT "y"
+        UPDATE_COMMAND "<DOWNLOADED_FILE>" "x" "-y" "-o<SOURCE_DIR>")
 else()
     set(FRIDA_INJECTOR_SUFFIX "${OS}-${FRIDA_INJECTOR_ARCH}.tar.xz")
     set(FRIDA_INJECTOR_CUSTOM_OPT "")
@@ -129,5 +129,5 @@ add_library(QBDInjected ${QBDInjected_SRC})
 target_include_directories(QBDInjected PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 install(TARGETS QBDInjected ARCHIVE DESTINATION lib COMPONENT QBDInjector)
-
 install(FILES include/QBDInjector.h DESTINATION include/)
+
