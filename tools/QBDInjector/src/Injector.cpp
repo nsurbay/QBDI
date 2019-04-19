@@ -49,8 +49,8 @@ void help(int exit_value, char* arg0) {
     exit(exit_value);
 }
 
-struct arguments* parse_argv(int argc, char** argv) {
-    struct arguments* arg = new struct arguments;
+std::unique_ptr<Arguments> parse_argv(int argc, char** argv) {
+    std::unique_ptr<Arguments> arg(new Arguments);
     int c;
     static struct option long_options[] = {
         {"attach",               required_argument, 0, 'a'},
@@ -186,14 +186,14 @@ struct arguments* parse_argv(int argc, char** argv) {
     return arg;
 }
 
-int inject(FridaDevice* device, struct arguments* arg) {
+int inject(FridaDevice* device, Arguments* arg) {
     GError* error = nullptr;
     frida_device_inject_library_file_sync(device, arg->pid, arg->injectlibrary, arg->entrypoint_name,  arg->entrypoint_parameter, &error);
     LOGE();
     return 0;
 }
 
-int sync(FridaDevice* device, struct arguments* arg) {
+int sync(FridaDevice* device, Arguments* arg) {
 
     GError* error = nullptr;
 
@@ -231,7 +231,7 @@ int sync(FridaDevice* device, struct arguments* arg) {
     return 0;
 }
 
-int spawn(struct arguments* arg) {
+int spawn(Arguments* arg) {
     GError* error = nullptr;
     FridaDeviceManager* manager = frida_device_manager_new();
     FridaDevice* device = frida_device_manager_get_device_by_type_sync(manager, FRIDA_DEVICE_TYPE_LOCAL, 0, NULL, &error);
@@ -309,7 +309,7 @@ int spawn(struct arguments* arg) {
 }
 
 
-int attach(struct arguments* arg) {
+int attach(Arguments* arg) {
     GError* error = nullptr;
 
     FridaInjector* injector = frida_injector_new();
@@ -327,25 +327,22 @@ int attach(struct arguments* arg) {
     return 0;
 }
 
+}
 
-extern "C" {
 int main(int argc, char** argv) {
-    struct arguments* arg = parse_argv(argc, argv);
+    std::unique_ptr<QBDInjector::Arguments> arg = QBDInjector::parse_argv(argc, argv);
     int res = 0;
 
     frida_init();
 
-    if (arg->exectype == ExecType::ATTACH) {
-        res = attach(arg);
+    if (arg->exectype == QBDInjector::ExecType::ATTACH) {
+        res = QBDInjector::attach(arg.get());
     } else {
-        res = spawn(arg);
+        res = QBDInjector::spawn(arg.get());
     }
 
     frida_deinit();
 
-    delete arg;
     return res;
 }
-}
 
-}

@@ -4,11 +4,11 @@
 
 namespace QBDInjector {
 
-void wait_end_child(struct arguments* arg) {
+void wait_end_child(Arguments* arg) {
 
 }
 
-int setup_inject(FridaDevice* device, struct arguments* arg) {
+int setup_inject(FridaDevice* device, Arguments* arg) {
     return 0;
 }
 

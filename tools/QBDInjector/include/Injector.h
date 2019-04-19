@@ -2,6 +2,7 @@
 #define _Injector_h
 
 #include <vector>
+#include <memory>
 #include "frida-core.h"
 #include "QBDInjector_common.h"
 
@@ -24,7 +25,7 @@ enum ExecType {
     SYNC
 };
 
-struct arguments {
+struct Arguments {
     enum ExecType exectype;
     int pid;
     int verbose;
@@ -39,12 +40,12 @@ struct arguments {
     std::vector<char*> env;
 };
 
-int inject(FridaDevice* device, struct arguments* arg);
-int sync(FridaDevice* device, struct arguments* arg);
+int inject(FridaDevice* device, Arguments* arg);
+int sync(FridaDevice* device, Arguments* arg);
 
 // OS specific method
-void wait_end_child(struct arguments* arg);
-int setup_inject(FridaDevice* device, struct arguments* arg);
+void wait_end_child(Arguments* arg);
+int setup_inject(FridaDevice* device, Arguments* arg);
 
 }
 
