@@ -4,13 +4,15 @@
 #include <stdbool.h>
 #include "QBDI.h"
 
+#if defined(QBDI_OS_WIN)
+#include <windows.h>
+#pragma comment(linker, "/export:_qbdinjector_frida_entrypoint")
+#endif
+
+
 #ifdef __cplusplus
 namespace QBDInjector {
 extern "C" {
-#endif
-
-#if defined(QBDI_OS_WIN)
-#pragma comment(linker, "/export:_qbdinjector_frida_entrypoint")
 #endif
 
 /*

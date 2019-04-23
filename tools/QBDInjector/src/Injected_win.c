@@ -9,7 +9,7 @@
 static struct _win_Injected_ctx {
     void* thread_ctx_buff;
     CONTEXT *thread_ctx;
-} ctx;
+} ctx = {NULL, NULL};
 
 void __main_windows_entrypoint();
 
@@ -129,121 +129,114 @@ fail1:
     return;
 }
 
-//void ptrace_to_GPRState(const struct user_regs_struct* gprCtx, GPRState* gprState) {
-//#if defined(QBDI_ARCH_X86_64)
-//    gprState->rax = gprCtx->rax;
-//    gprState->rbx = gprCtx->rbx;
-//    gprState->rcx = gprCtx->rcx;
-//    gprState->rdx = gprCtx->rdx;
-//    gprState->rsi = gprCtx->rsi;
-//    gprState->rdi = gprCtx->rdi;
-//    gprState->rbp = gprCtx->rbp;
-//    gprState->rsp = gprCtx->rsp;
-//    gprState->r8 = gprCtx->r8;
-//    gprState->r9 = gprCtx->r9;
-//    gprState->r10 = gprCtx->r10;
-//    gprState->r11 = gprCtx->r11;
-//    gprState->r12 = gprCtx->r12;
-//    gprState->r13 = gprCtx->r13;
-//    gprState->r14 = gprCtx->r14;
-//    gprState->r15 = gprCtx->r15;
-//    gprState->rip = gprCtx->rip;
-//    gprState->eflags = gprCtx->eflags;
-//#else
-//#error "Not Implemented"
-//#endif
-//}
-//
-//void ptrace_to_FPRState(const user_floatingregister_struct* fprCtx, FPRState* fprState) {
-//#if defined(QBDI_ARCH_X86_64)
-//    fprState->rfcw = fprCtx->cwd;
-//    fprState->rfsw = fprCtx->swd;
-//    fprState->ftw = fprCtx->ftw & 0xFF;
-//    fprState->rsrv1 = (fprCtx->ftw >> 8 ) & 0xFF;
-//
-//    fprState->ip = fprCtx->rip & 0xFFFFFFFF;
-//    fprState->cs = (fprCtx->rip >> 32) & 0xFFFF;
-//    fprState->rsrv2 = (fprCtx->rip >> 48) & 0xFFFF;
-//
-//    fprState->dp = fprCtx->rdp & 0xFFFFFFFF;
-//    fprState->ds = (fprCtx->rdp >> 32) & 0xFFFF;
-//    fprState->rsrv3 = (fprCtx->rdp >> 48) & 0xFFFF;
-//
-//    fprState->mxcsr = fprCtx->mxcsr;
-//    fprState->mxcsrmask = fprCtx->mxcr_mask;
-//
-//    memcpy(&fprState->stmm0, &fprCtx->st_space[0], 128);
-//    memcpy(&fprState->xmm0, &fprCtx->xmm_space[0], 256);
-//#else
-//#error "Not Implemented"
-//#endif
-//}
+void ThreadContext_to_GPRState(CONTEXT* ctx, GPRState* gprState) {
+#if defined(QBDI_ARCH_X86_64)
+    // http://winappdbg.sourceforge.net/doc/v1.3/winappdbg.win32.context_amd64-pysrc.html
+    gprState->rax = ctx->Rax;
+    gprState->rbx = ctx->Rbx;
+    gprState->rcx = ctx->Rcx;
+    gprState->rdx = ctx->Rdx;
+    gprState->rsi = ctx->Rsi;
+    gprState->rdi = ctx->Rdi;
+    gprState->rbp = ctx->Rbp;
+    gprState->rsp = ctx->Rsp;
+    gprState->r8 = ctx->R8;
+    gprState->r9 = ctx->R9;
+    gprState->r10 = ctx->R10;
+    gprState->r11 = ctx->R11;
+    gprState->r12 = ctx->R12;
+    gprState->r13 = ctx->R13;
+    gprState->r14 = ctx->R14;
+    gprState->r15 = ctx->R15;
+    gprState->rip = ctx->Rip;
+    gprState->eflags = ctx->EFlags;
+#else
+#error "Not Implemented"
+#endif
+}
+
+void ThreadContext_to_FPRState(CONTEXT* ctx, FPRState* fprState) {
+#if defined(QBDI_ARCH_X86_64)
+    fprState->rfcw = ctx->FltSave.ControlWord;
+    fprState->rfsw = ctx->FltSave.StatusWord;
+    fprState->ftw = ctx->FltSave.TagWord;
+    fprState->rsrv1 = ctx->FltSave.Reserved1;
+
+    fprState->fop = ctx->FltSave.ErrorOpcode;
+    fprState->ip = ctx->FltSave.ErrorOffset;
+    fprState->cs = ctx->FltSave.ErrorSelector;
+    fprState->rsrv2 = ctx->FltSave.Reserved2;
+
+    fprState->dp = ctx->FltSave.DataOffset;
+    fprState->ds = ctx->FltSave.DataSelector;
+    fprState->rsrv3 = ctx->FltSave.Reserved3;
+
+    fprState->mxcsr = ctx->FltSave.MxCsr;
+    fprState->mxcsrmask = ctx->FltSave.MxCsr_Mask;
+
+    memcpy(&fprState->stmm0, &ctx->FltSave.FloatRegisters, 128);
+    memcpy(&fprState->xmm0, &ctx->FltSave.XmmRegisters, 256);
+    memcpy(&fprState->ymm0, LocateXStateFeature(ctx, XSTATE_AVX, NULL), 256);
+#else
+#error "Not Implemented"
+#endif
+}
 
 void __main_windows_entrypoint() {
     LOG1("[+] Hello from main thread ...\n");
-//    GPRState gprState = {0};
-//    FPRState fprState = {0};
-//    struct user_regs_struct origin_regs;
-//    user_floatingregister_struct origin_fregs;
-//
-//    if (qbdinjector_earlyinit())
-//        exit(0);
-//
-//    // get origin register state
-//    int len_struct;
-//    read_message((char*) &len_struct, sizeof(len_struct), false);
-//    if (len_struct != sizeof(origin_regs)) {
-//        fprintf(stderr, "[-] length of general register structure missmatched between the Injector and the Injected\n");
-//        close_pipe();
-//        exit(1);
-//    }
-//    read_message((char*) &origin_regs, sizeof(origin_regs), false);
-//
-//    read_message((char*) &len_struct, sizeof(len_struct), false);
-//    if (len_struct != sizeof(origin_fregs)) {
-//        fprintf(stderr, "[-] length of floating register structure missmatched between the Injector and the Injected\n");
-//        close_pipe();
-//        exit(1);
-//    }
-//    read_message((char*) &origin_fregs, sizeof(origin_fregs), false);
-//
-//    ptrace_to_GPRState(&origin_regs, &gprState);
-//    ptrace_to_FPRState(&origin_fregs, &fprState);
-//
-//    if (qbdinjector_init(&gprState, &fprState))
-//        return;
-//
-//    VMInstanceRef vm;
-//    qbdi_initVM(&vm, NULL, NULL);
-//    qbdi_instrumentAllExecutableMaps(vm);
-//
-//    size_t size = 0, i = 0;
-//    char **modules = qbdi_getModuleNames(&size);
-//
-//    // Filter some modules to avoid conflicts
-//    qbdi_removeInstrumentedModuleFromAddr(vm, (rword) &__main_linux_entrypoint);
-//    qbdi_removeInstrumentedModuleFromAddr(vm, (rword) &qbdi_removeInstrumentedModuleFromAddr);
-//    for(i = 0; i < size; i++) {
-//        if (strstr(modules[i], "libc-2.") ||
-//            strstr(modules[i], "ld-2.") ||
-//            strstr(modules[i], "libcofi")) {
-//            qbdi_removeInstrumentedModule(vm, modules[i]);
-//        }
-//    }
-//    for(i = 0; i < size; i++) {
-//        free(modules[i]);
-//    }
-//    free(modules);
-//
-//    // Set original states
-//    qbdi_setGPRState(vm, &gprState);
-//    qbdi_setFPRState(vm, &fprState);
-//
-//    rword start = QBDI_GPR_GET(&gprState, REG_PC);
-//    rword stop = 0;
-//
-//    qbdinjector_on_entrypoint(vm, start, stop);
-//
+    GPRState gprState = {0};
+    FPRState fprState = {0};
+
+    LOG1("[+] Call qbdinjector_earlyinit ...\n");
+    if (qbdinjector_earlyinit())
+        exit(0);
+
+    if (ctx.thread_ctx == NULL) {
+        fprintf(stderr, "[-] Cannot Found thread state\n");
+        exit(127);
+    }
+    LOG1("[+] Create Context ...\n");
+    ThreadContext_to_GPRState(ctx.thread_ctx, &gprState);
+    ThreadContext_to_FPRState(ctx.thread_ctx, &fprState);
+
+    LOG1("[+] Call qbdinjector_init ...\n");
+    if (qbdinjector_init(&gprState, &fprState))
+        exit(0);
+
+    LOG1("[+] Create VM ...\n");
+    VMInstanceRef vm;
+    qbdi_initVM(&vm, NULL, NULL);
+    qbdi_instrumentAllExecutableMaps(vm);
+
+    size_t size = 0, i = 0;
+    char **modules = qbdi_getModuleNames(&size);
+
+    // Filter some modules to avoid conflicts
+    qbdi_removeInstrumentedModuleFromAddr(vm, (rword) &__main_windows_entrypoint);
+    qbdi_removeInstrumentedModuleFromAddr(vm, (rword) &qbdi_removeInstrumentedModuleFromAddr);
+    // TODO
+    //for(i = 0; i < size; i++) {
+    //    if (strstr(modules[i], "libc-2.") ||
+    //        strstr(modules[i], "ld-2.") ||
+    //        strstr(modules[i], "libcofi")) {
+    //        qbdi_removeInstrumentedModule(vm, modules[i]);
+    //    }
+    //}
+    for(i = 0; i < size; i++) {
+        free(modules[i]);
+    }
+    free(modules);
+
+    // Set original states
+    qbdi_setGPRState(vm, &gprState);
+    qbdi_setFPRState(vm, &fprState);
+
+    rword start = QBDI_GPR_GET(&gprState, REG_PC);
+    rword stop = 0;
+
+    LOG1("[+] Call qbdinjector_on_entrypoint ...\n");
+    qbdinjector_on_entrypoint(vm, start, stop);
+
     exit(0);
 }
 

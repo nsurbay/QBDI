@@ -70,6 +70,7 @@ void ptrace_to_FPRState(const user_floatingregister_struct* fprCtx, FPRState* fp
     fprState->ftw = fprCtx->ftw & 0xFF;
     fprState->rsrv1 = (fprCtx->ftw >> 8 ) & 0xFF;
 
+    fprState->fop = fprCtx->fop;
     fprState->ip = fprCtx->rip & 0xFFFFFFFF;
     fprState->cs = (fprCtx->rip >> 32) & 0xFFFF;
     fprState->rsrv2 = (fprCtx->rip >> 48) & 0xFFFF;
