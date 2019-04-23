@@ -1,0 +1,18 @@
+cmake_minimum_required (VERSION 3.2)
+project(QBDInjector_test)
+
+set(QBDI_INCLUDE_DIRS "E:/git/include" "E:/git/tools/QBDInjector/include")
+set(QBDI_LIB_DIRS "E:/git/build_win/Release" "E:/git/build_win/tools/QBDInjector/Release")
+find_library(QBDI_OBJ QBDI_static HINTS "E:/git/build_win/Release")
+find_library(QBDInjected QBDInjected HINTS "E:/git/build_win/tools/QBDInjector/Release")
+
+set(SOURCELIB "test_injector.c")
+
+add_library(qbdi_injector SHARED ${SOURCELIB})
+target_include_directories(qbdi_injector PUBLIC ${QBDI_INCLUDE_DIRS})
+target_link_directories(qbdi_injector PUBLIC ${QBDI_LIB_DIRS})
+target_link_libraries(qbdi_injector PUBLIC ${QBDI_OBJ} ${QBDInjected})
+
+set(SOURCE "test_fputag.c")
+
+add_executable(main ${SOURCE})
