@@ -96,7 +96,7 @@ void close_pipe() {
 
 void send_message(char* buf, size_t len) {
 
-    LOG1_dump("[+] %s write %u :", buf, len, len);
+    LOG1_dump("[+] %s write %zu :", buf, len, len);
     if (!WriteFile(ctx.Pipe, buf, len, NULL, NULL)) {
         fprintf(stderr, "[-] Error when writting Pipe. GLE : %d\n", GetLastError());
         exit(1);
