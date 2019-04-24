@@ -32,12 +32,29 @@ int get_maintid(int pid) {
     return -1;
 }
 
-void prepare_inject(int res) {
+void _qbdinjector_frida_entrypoint(const char* msg, bool* stay_resident) {
+
+    *stay_resident = true;
+
+    LOG1("[+] call qbdinjector_frida_earlyinit ...\n");
+    if (qbdinjector_frida_earlyinit(msg, stay_resident))
+        return;
+
+    setvbuf(stdin, NULL, _IONBF, 0);
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
+
+    LOG1("[+] call qbdinjector_frida_init ...\n");
+
+    if (qbdinjector_frida_init(msg)) {
+        return;
+    }
+
     LOG1("[+] create virtual stack ...\n");
     void* page = VirtualAlloc(NULL, STACK_SIZE, MEM_COMMIT, PAGE_READWRITE);
     if (page == NULL) {
         perror("[-] VirtualAlloc failled ...");
-        goto fail1;
+        goto end;
     }
 
 #if defined(QBDI_ARCH_X86)
@@ -51,16 +68,15 @@ void prepare_inject(int res) {
 
     if (maintid < 0) {
         fprintf(stderr, "[-] Fail to find main tid\n");
-        goto fail1;
+        return;
     }
 
     LOG1("[+] main thread id : %d\n", maintid);
     HANDLE MainThread = OpenThread(THREAD_ALL_ACCESS, TRUE, maintid);
     if (MainThread == NULL) {
         fprintf(stderr, "[-] Fail to OpenThread on tid %d (error: %d)\n", maintid, GetLastError());
-        goto fail1;
+        return;
     }
-
     int contextSize = 0;
 
     // https://docs.microsoft.com/en-us/windows/desktop/Debug/working-with-xstate-context
@@ -68,27 +84,27 @@ void prepare_inject(int res) {
     if (InitializeContext(NULL, CONTEXT_ALL | CONTEXT_XSTATE, NULL, &contextSize) ||
             GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
         fprintf(stderr, "[-] Fail to get size of context (error: %d)\n", GetLastError());
-        goto fail2;
+        goto end;
     }
 
     ctx.thread_ctx_buff = malloc(contextSize);
     if (ctx.thread_ctx_buff == NULL) {
         fprintf(stderr, "[-] Fail to get size of context\n");
-        goto fail2;
+        goto end;
     }
 
     if (!InitializeContext(ctx.thread_ctx_buff, CONTEXT_ALL | CONTEXT_XSTATE, &ctx.thread_ctx, &contextSize)) {
         fprintf(stderr, "[-] Fail to get size of context (error: %d)\n", GetLastError());
-        goto fail2;
+        goto end;
     }
     if (!SetXStateFeaturesMask(ctx.thread_ctx, XSTATE_MASK_AVX)) {
         fprintf(stderr, "[-] Fail to set AVX mask (error: %d)\n", GetLastError());
-        goto fail2;
+        goto end;
     }
 
     if (!GetThreadContext(MainThread, ctx.thread_ctx)) {
         fprintf(stderr, "[-] Fail to get context (error: %d)\n", GetLastError());
-        goto fail2;
+        goto end;
     }
 
     // modify main thread
@@ -100,25 +116,17 @@ void prepare_inject(int res) {
 
     if (!SetThreadContext(MainThread, ctx.thread_ctx)) {
         fprintf(stderr, "[-] Fail to set context (error: %d)\n", GetLastError());
-        goto fail2;
+        goto end;
     }
 
     // restore previous value in context
     ctx.thread_ctx->Rsp = save_rsp;
     ctx.thread_ctx->Rip = save_rip;
 
-    CloseHandle(MainThread);
-
     // inform injection and return
-    send_message((char*) &res, sizeof(int));
-    return;
-
-fail2:
+    ResumeThread(MainThread);
+end:
     CloseHandle(MainThread);
-fail1:
-    int stop = QBDINJECTOR_STOP;
-    send_message((char*) &stop, sizeof(int));
-    close_pipe();
     return;
 }
 
@@ -208,13 +216,14 @@ void __main_windows_entrypoint() {
     qbdi_removeInstrumentedModuleFromAddr(vm, (rword) &__main_windows_entrypoint);
     qbdi_removeInstrumentedModuleFromAddr(vm, (rword) &qbdi_removeInstrumentedModuleFromAddr);
     // TODO
-    //for(i = 0; i < size; i++) {
-    //    if (strstr(modules[i], "libc-2.") ||
-    //        strstr(modules[i], "ld-2.") ||
-    //        strstr(modules[i], "libcofi")) {
-    //        qbdi_removeInstrumentedModule(vm, modules[i]);
-    //    }
-    //}
+    for(i = 0; i < size; i++) {
+        if (strstr(modules[i], "ntdll.")) {
+            // TODO TO FIX
+            // entrypoint is on ntdll.dll. We need to instrument ntdll until main.
+            // ntdll has some mutex and need to be not instrumented after
+            //qbdi_removeInstrumentedModule(vm, modules[i]);
+        }
+    }
     for(i = 0; i < size; i++) {
         free(modules[i]);
     }

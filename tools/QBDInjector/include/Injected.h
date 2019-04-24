@@ -10,7 +10,4 @@
 #define LOG1(...)
 #endif
 
-// OS specific to begin inject in main thread
-void prepare_inject(int res);
-
 #endif /* _Injected_h */

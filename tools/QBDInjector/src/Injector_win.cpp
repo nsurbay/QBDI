@@ -10,8 +10,15 @@ void wait_end_child(Arguments* arg) {
      WaitForSingleObject(h, INFINITE );
 }
 
-int setup_inject(FridaDevice* device, Arguments* arg) {
-    arg->resume = true;
+int sync(FridaDevice* device, Arguments* arg) {
+
+    GError* error = nullptr;
+
+    LOG1("[+] Inject lib %s and call %s(\"%s\")\n", arg->injectlibrary, arg->entrypoint_name, arg->entrypoint_parameter);
+    inject(device, arg);
+
+    // injected library will resume the thread
+    arg->resume = false;
     return 0;
 }
 

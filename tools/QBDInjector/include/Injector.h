@@ -45,7 +45,6 @@ int sync(FridaDevice* device, Arguments* arg);
 
 // OS specific method
 void wait_end_child(Arguments* arg);
-int setup_inject(FridaDevice* device, Arguments* arg);
 
 }
 

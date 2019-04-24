@@ -21,9 +21,35 @@ void wait_end_child(Arguments* arg) {
     }
 }
 
-int setup_inject(FridaDevice* device, Arguments* arg) {
+int sync(FridaDevice* device, Arguments* arg) {
+    // need to create a pipe to communicate with child process (problem with ptrace and frida)
 
     GError* error = nullptr;
+
+    LOG1("[+] create pipe\n")
+    arg->entrypoint_parameter = init_server(arg->verbose);
+    LOG1("[+] Inject lib %s and call %s(\"%s\")\n", arg->injectlibrary, arg->entrypoint_name, arg->entrypoint_parameter);
+    inject(device, arg);
+    LOG1("[+] connect to pipe\n");
+    open_pipe();
+
+    LOG1("[+] Send parameter : %s\n", arg->parameter);
+    int len_parameter = strlen(arg->parameter) + 1;
+    send_message((char*) &len_parameter, sizeof(len_parameter));
+    send_message(arg->parameter, len_parameter);
+
+    int result_user_init;
+    read_message((char*) &result_user_init, sizeof(result_user_init), false);
+
+    if (result_user_init & QBDINJECTOR_STOP) {
+        arg->wait = false;
+        arg->resume = false;
+        LOG1("[+] Received stop message, immediatly exit\n");
+        frida_device_kill_sync(device, arg->pid, &error);
+        LOGE();
+        close_pipe();
+        return 0;
+    }
 
     // receive this before stop the process, the thread will be affected by the signal
     QBDI::rword new_addr;
@@ -90,6 +116,7 @@ int setup_inject(FridaDevice* device, Arguments* arg) {
     send_message((char*) &len, sizeof(len));
     send_message((char*) &origin_fregs, len);
 
+    close_pipe();
     return 0;
 }
 

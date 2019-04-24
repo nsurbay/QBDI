@@ -12,6 +12,7 @@
 
 #ifdef __cplusplus
 namespace QBDInjector {
+using namespace QBDI;
 extern "C" {
 #endif
 
@@ -25,10 +26,7 @@ extern "C" {
 // at begin of frida injected thread. need return CONTINUE | STOP
 extern int qbdinjector_frida_earlyinit(const char* msg, bool* stay_resident);
 
-#define QBDINJECTOR_INJECT 0x2
-#define QBDINJECTOR_WAIT 0x4
-
-// on frida thread with '-p' parameter. need to return STOP | INJECT | WAIT
+// on frida thread with '-p' parameter. need to return CONTINUE | STOP
 extern int qbdinjector_frida_init(const char* parameter);
 
 /*

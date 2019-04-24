@@ -11,7 +11,45 @@
 
 void __main_linux_entrypoint();
 
-void prepare_inject(int res) {
+
+void __attribute__ ((visibility ("default")))
+_qbdinjector_frida_entrypoint(const char* msg, bool* stay_resident) {
+
+    *stay_resident = true;
+
+    LOG1("[+] call qbdinjector_frida_earlyinit ...\n");
+    int res = qbdinjector_frida_earlyinit(msg, stay_resident);
+    if (res)
+        return;
+
+    setvbuf(stdin, NULL, _IONBF, 0);
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
+
+#ifdef _QBDI_DEBUG
+    init_client(msg, 1);
+#else
+    init_client(msg, 0);
+#endif
+    open_pipe();
+    int len_parameter;
+    read_message((char*) &len_parameter, sizeof(len_parameter), false);
+    char* parameter = malloc(len_parameter+1);
+    if (parameter == NULL) {
+        fprintf(stderr, "[-] Failled malloc\n");
+        return;
+    }
+    read_message(parameter, len_parameter, false);
+    parameter[len_parameter] = '\0';
+
+    LOG1("[+] call qbdinjector_frida_init ...\n");
+    res = qbdinjector_frida_init(parameter);
+
+    if (res & QBDINJECTOR_STOP) {
+        send_message((char*) &res, sizeof(res));
+        close_pipe();
+        return;
+    }
 
     // prepare page to trigger sighandler
     void* page = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);

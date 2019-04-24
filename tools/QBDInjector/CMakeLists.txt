@@ -99,8 +99,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s")
 set(QBDInjector_SRC
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Injector.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/Injector_${OS}.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/common_${OS}.c"
     )
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/common_${OS}.c")
+    set(QBDInjector_SRC ${QBDInjector_SRC} "${CMAKE_CURRENT_SOURCE_DIR}/src/common_${OS}.c")
+endif()
 
 add_executable(QBDInjector ${QBDInjector_SRC})
 target_link_libraries(QBDInjector libfrida-core)
@@ -120,10 +122,11 @@ install(TARGETS QBDInjector DESTINATION bin COMPONENT QBDInjector)
 ################
 
 set(QBDInjected_SRC
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Injected.c"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/Injected_${OS}.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/common_${OS}.c"
     )
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/common_${OS}.c")
+    set(QBDInjected_SRC ${QBDInjected_SRC} "${CMAKE_CURRENT_SOURCE_DIR}/src/common_${OS}.c")
+endif()
 
 add_library(QBDInjected ${QBDInjected_SRC})
 target_include_directories(QBDInjected PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")

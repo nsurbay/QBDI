@@ -18,7 +18,7 @@ void help(int exit_value, char* arg0) {
     const char help_text[] =
         "%1$s [-v] [-p ARG] -i INJECT-LIBRARY [-n ENTRYPOINT] -a pid\n"
         "%1$s [-v] [-p ARG] -i INJECT-LIBRARY [-n ENTRYPOINT] [-q|-r|-w] [-e ENV_VARIABLE] -S command [arguments]\n"
-        "%1$s [-v] [-p ARG] -i INJECT-LIBRARY [-e ENV_VARIABLE] -s command [arguments]\n"
+        "%1$s [-v] [-p ARG] -i INJECT-LIBRARY [-r|-w] [-e ENV_VARIABLE] -s command [arguments]\n"
         "\n"
         "inject a library in a process and call ENTRYPOINT\n"
         "\n"
@@ -34,11 +34,11 @@ void help(int exit_value, char* arg0) {
         "    -v | --verbose               Enable verbose log of QBDInjector\n"
         "\n"
         "Others arguments:\n"
-        "    -e | --env                   Add a environment variable to the new processus (only with -s|-S)\n"
+        "    -e | --env                   Add a environment variable to the new processus (only with -S|-s)\n"
         "    -n | --entrypoint-name       Set entrypoint (default : \"%2$s\") (only with -a|-S)\n"
         "    -q | --quit                  Don't resume and wait the process to terminated (only with -S)\n"
-        "    -r | --resume                Resume the process but don't wait (only with -S)\n"
-        "    -w | --wait                  Resume and wait the process (only with -S) (default)\n";
+        "    -r | --resume                Resume the process but don't wait (only with -S|-s)\n"
+        "    -w | --wait                  Resume and wait the process (not with -S|-s) (default)\n";
 
     if (exit_value == 0) {
         printf(help_text, arg0, DEFAULT_ENTRYPOINT);
@@ -190,44 +190,6 @@ int inject(FridaDevice* device, Arguments* arg) {
     GError* error = nullptr;
     frida_device_inject_library_file_sync(device, arg->pid, arg->injectlibrary, arg->entrypoint_name,  arg->entrypoint_parameter, &error);
     LOGE();
-    return 0;
-}
-
-int sync(FridaDevice* device, Arguments* arg) {
-
-    GError* error = nullptr;
-
-    LOG1("[+] create pipe\n")
-    arg->entrypoint_parameter = init_server(arg->verbose);
-    LOG1("[+] Inject lib %s and call %s(\"%s\")\n", arg->injectlibrary, arg->entrypoint_name, arg->entrypoint_parameter);
-    inject(device, arg);
-    LOG1("[+] connect to pipe\n");
-    open_pipe();
-
-    LOG1("[+] Send parameter : %s\n", arg->parameter);
-    int len_parameter = strlen(arg->parameter) + 1;
-    send_message((char*) &len_parameter, sizeof(len_parameter));
-    send_message(arg->parameter, len_parameter);
-
-    int result_user_init;
-    read_message((char*) &result_user_init, sizeof(result_user_init), false);
-
-    if (result_user_init & QBDINJECTOR_STOP) {
-        arg->wait = false;
-        arg->resume = false;
-        LOG1("[+] Received stop message, immediatly exit\n");
-        frida_device_kill_sync(device, arg->pid, &error);
-        LOGE();
-        close_pipe();
-        return 0;
-    }
-
-    arg->wait = result_user_init & QBDINJECTOR_WAIT;
-    if (result_user_init & QBDINJECTOR_INJECT) {
-        setup_inject(device, arg);
-    }
-
-    close_pipe();
     return 0;
 }
 
