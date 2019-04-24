@@ -72,25 +72,15 @@ void prepare_inject(int res) {
     }
 
     ctx.thread_ctx_buff = malloc(contextSize);
-    void* modified_ctx_buff = malloc(contextSize);
-    if (ctx.thread_ctx_buff == NULL || modified_ctx_buff == NULL) {
+    if (ctx.thread_ctx_buff == NULL) {
         fprintf(stderr, "[-] Fail to get size of context\n");
         goto fail2;
     }
 
-    CONTEXT* modified_ctx;
-    int contextSize2 = contextSize;
-    if (!InitializeContext(ctx.thread_ctx_buff, CONTEXT_ALL | CONTEXT_XSTATE, &ctx.thread_ctx, &contextSize) ||
-            !InitializeContext(modified_ctx_buff, CONTEXT_ALL | CONTEXT_XSTATE, &modified_ctx, &contextSize2)) {
+    if (!InitializeContext(ctx.thread_ctx_buff, CONTEXT_ALL | CONTEXT_XSTATE, &ctx.thread_ctx, &contextSize)) {
         fprintf(stderr, "[-] Fail to get size of context (error: %d)\n", GetLastError());
         goto fail2;
     }
-    if (contextSize2 != contextSize) {
-        // may never append
-        fprintf(stderr, "[-] ContextSize error (error: %d)\n", GetLastError());
-        goto fail2;
-    }
-
     if (!SetXStateFeaturesMask(ctx.thread_ctx, XSTATE_MASK_AVX)) {
         fprintf(stderr, "[-] Fail to set AVX mask (error: %d)\n", GetLastError());
         goto fail2;
@@ -101,19 +91,22 @@ void prepare_inject(int res) {
         goto fail2;
     }
 
-    // copy context to a new buffer to modify it;
-    memcpy(modified_ctx, ctx.thread_ctx, contextSize);
-
     // modify main thread
     LOG1("[+] modify main thread context ...\n");
-    modified_ctx->Rsp = stack;
-    modified_ctx->Rip = (rword) &__main_windows_entrypoint;
+    rword save_rsp = ctx.thread_ctx->Rsp;
+    rword save_rip = ctx.thread_ctx->Rip;
+    ctx.thread_ctx->Rsp = stack;
+    ctx.thread_ctx->Rip = (rword) &__main_windows_entrypoint;
 
-    if (!SetThreadContext(MainThread, modified_ctx)) {
+    if (!SetThreadContext(MainThread, ctx.thread_ctx)) {
         fprintf(stderr, "[-] Fail to set context (error: %d)\n", GetLastError());
         goto fail2;
     }
-    free(modified_ctx_buff);
+
+    // restore previous value in context
+    ctx.thread_ctx->Rsp = save_rsp;
+    ctx.thread_ctx->Rip = save_rip;
+
     CloseHandle(MainThread);
 
     // inform injection and return
