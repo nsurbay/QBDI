@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include <dlfcn.h>
 #include <sys/ptrace.h>
 #include <sys/user.h>
 #include <sys/wait.h>
@@ -19,6 +20,39 @@ void wait_end_child(Arguments* arg) {
     if (errno != ESRCH) {
         perror("[-] Error when wait end of child process");
     }
+}
+
+bool test_library(Arguments* arg) {
+    void* handler = dlopen(arg->injectlibrary, RTLD_LAZY | RTLD_LOCAL);
+    if (handler == NULL) {
+        return false;
+    } else {
+        dlclose(handler);
+        // replace with full path if implicite relative path
+        if (arg->injectlibrary[0] != '/' && arg->injectlibrary[0] != '.') {
+           char *cwd = get_current_dir_name();
+           if (cwd != NULL) {
+               cwd = (char*) realloc(cwd, strlen(cwd) + strlen(arg->injectlibrary) + 3);
+               strcat(cwd, "/");
+               strncat(cwd, arg->injectlibrary, strlen(arg->injectlibrary));
+               arg->injectlibrary = cwd;
+           }
+        }
+        return true;
+    }
+}
+
+int gum(FridaDevice* device, Arguments* arg) {
+
+    LOG1("[+] Inject lib %s and call %s(\"%s\")\n", arg->injectlibrary, arg->entrypoint_name, arg->entrypoint_parameter);
+    inject(device, arg);
+
+    // give some time for gum to initialise
+    sleep(1);
+
+    arg->resume = true;
+    return 0;
+
 }
 
 int sync(FridaDevice* device, Arguments* arg) {

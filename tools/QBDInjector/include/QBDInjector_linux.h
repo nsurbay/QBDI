@@ -1,5 +1,5 @@
-#ifndef _QBDINJECTOR_LINUX_H
-#define _QBDINJECTOR_LINUX_H
+#ifndef QBDI_QBDINJECTOR_LINUX_H
+#define QBDI_QBDINJECTOR_LINUX_H
 
 #include "QBDInjector_common.h"
 
@@ -20,10 +20,16 @@ typedef struct user_fpregs_struct user_floatingregister_struct;
 #error "Not Implemented"
 #endif
 
-
+// communication method
+char* init_server(int verbose);
+void init_client(const char* pipename, int verbose);
+void open_pipe();
+void close_pipe();
+void send_message(char* buf, size_t len);
+int read_message(char *buf, size_t len, bool allow_EOF);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _QBDINJECTOR_LINUX_H */
+#endif /* QBDI_QBDINJECTOR_LINUX_H */

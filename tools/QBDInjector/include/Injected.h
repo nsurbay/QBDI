@@ -1,5 +1,5 @@
-#ifndef _Injected_h
-#define _Injected_h
+#ifndef QBDI_Injected_h
+#define QBDI_Injected_h
 
 #include "QBDInjector_common.h"
 #include "QBDInjector.h"
@@ -10,4 +10,4 @@
 #define LOG1(...)
 #endif
 
-#endif /* _Injected_h */
+#endif /* QBDI_Injected_h */

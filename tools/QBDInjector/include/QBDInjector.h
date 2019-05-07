@@ -1,20 +1,27 @@
-#ifndef _QBDInjector_h
-#define _QBDInjector_h
+#ifndef QBDI_QBDInjector_h
+#define QBDI_QBDInjector_h
 
 #include <stdbool.h>
 #include "QBDI.h"
-
-#if defined(QBDI_OS_WIN)
-#include <windows.h>
-#pragma comment(linker, "/export:_qbdinjector_frida_entrypoint")
-#endif
-
 
 #ifdef __cplusplus
 namespace QBDInjector {
 using namespace QBDI;
 extern "C" {
 #endif
+
+/*
+ * Force define symbol
+ */
+
+#if defined(QBDI_OS_WIN)
+#include <windows.h>
+#pragma comment(linker, "/export:_qbdinjector_frida_entrypoint")
+#else
+void _qbdinjector_frida_entrypoint(const char* msg, bool* stay_resident);
+static void __attribute__ ((used)) *___qbdinjector_frida_entrypoint__fp = (void*) &_qbdinjector_frida_entrypoint;
+#endif
+
 
 /*
  * method called in frida injected thread
@@ -41,9 +48,11 @@ extern int qbdinjector_init(GPRState *gprState, FPRState *fprState);
 
 extern int qbdinjector_on_entrypoint(VMInstanceRef vm, rword start, rword stop);
 
+
+
 #ifdef __cplusplus
 }
 }
 #endif
 
-#endif /* _QBDInjector_h */
+#endif /* QBDI_QBDInjector_h */

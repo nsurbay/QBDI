@@ -10,6 +10,10 @@ void wait_end_child(Arguments* arg) {
      WaitForSingleObject(h, INFINITE );
 }
 
+int gum(FridaDevice* device, Arguments* arg) {
+    return sync(device, arg);
+}
+
 int sync(FridaDevice* device, Arguments* arg) {
 
     GError* error = nullptr;

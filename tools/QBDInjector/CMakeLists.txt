@@ -47,32 +47,34 @@ add_dependencies(libfrida-core frida-core)
 target_link_libraries(libfrida-core INTERFACE ${FRIDA_CORE_LIBRARY})
 target_include_directories(libfrida-core INTERFACE ${FRIDA_CORE_INCLUDE_DIR})
 
-## Frida Gum
-## ==========
-#set(FRIDA_GUM_URL     "https://github.com/frida/frida/releases/download/${FRIDA_INJECTOR_VERSION}/frida-gum-devkit-${FRIDA_INJECTOR_VERSION}-${FRIDA_INJECTOR_SUFFIX}.tar.xz")
-#set(FRIDA_GUM_PREFIX  "${CMAKE_CURRENT_BINARY_DIR}/frida-gum")
-#
-#ExternalProject_Add(frida-gum
-#    URL               "${FRIDA_GUM_URL}"
-#    PREFIX            "${FRIDA_GUM_PREFIX}"
-#    UPDATE_COMMAND    ""
-#    BUILD_COMMAND     ""
-#    CONFIGURE_COMMAND ""
-#    INSTALL_COMMAND   ""
-#)
-#
-#ExternalProject_get_property(frida-gum SOURCE_DIR)
-#set(FRIDA_GUM_SOURCE_DIR "${SOURCE_DIR}")
-#set(FRIDA_GUM_LIBRARY
-#  "${FRIDA_GUM_SOURCE_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}frida-gum${CMAKE_STATIC_LIBRARY_SUFFIX}")
-#
-#set(FRIDA_GUM_INCLUDE_DIR
-#  "${FRIDA_GUM_SOURCE_DIR}/")
-#
-#add_library(libfrida-gum INTERFACE)
-#add_dependencies(libfrida-gum frida-gum)
-#target_link_libraries(libfrida-gum INTERFACE ${FRIDA_GUM_LIBRARY})
-#target_include_directories(libfrida-gum INTERFACE ${FRIDA_GUM_INCLUDE_DIR})
+# Frida Gum
+# ==========
+set(FRIDA_GUM_URL     "https://github.com/frida/frida/releases/download/${FRIDA_INJECTOR_VERSION}/frida-gum-devkit-${FRIDA_INJECTOR_VERSION}-${FRIDA_INJECTOR_SUFFIX}")
+set(FRIDA_GUM_PREFIX  "${CMAKE_CURRENT_BINARY_DIR}/frida-gum")
+
+ExternalProject_Add(frida-gum
+    URL                 "${FRIDA_GUM_URL}"
+    PREFIX              "${FRIDA_GUM_PREFIX}"
+    DOWNLOAD_NAME       "frida-core-devkit-${FRIDA_INJECTOR_VERSION}-${FRIDA_INJECTOR_SUFFIX}"
+    BUILD_IN_SOURCE     1
+    ${FRIDA_INJECTOR_CUSTOM_OPT}
+    BUILD_COMMAND       ""
+    INSTALL_COMMAND     ""
+    CONFIGURE_COMMAND   ""
+)
+
+ExternalProject_get_property(frida-gum SOURCE_DIR)
+set(FRIDA_GUM_SOURCE_DIR "${SOURCE_DIR}")
+set(FRIDA_GUM_LIBRARY
+  "${FRIDA_GUM_SOURCE_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}frida-gum${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+set(FRIDA_GUM_INCLUDE_DIR
+  "${FRIDA_GUM_SOURCE_DIR}/")
+
+add_library(libfrida-gum INTERFACE)
+add_dependencies(libfrida-gum frida-gum)
+target_link_libraries(libfrida-gum INTERFACE ${FRIDA_GUM_LIBRARY})
+target_include_directories(libfrida-gum INTERFACE ${FRIDA_GUM_INCLUDE_DIR})
 
 if ("${OS}" STREQUAL "win")
     # include getopt for VS
@@ -134,3 +136,20 @@ target_include_directories(QBDInjected PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/incl
 install(TARGETS QBDInjected ARCHIVE DESTINATION lib COMPONENT QBDInjector)
 install(FILES include/QBDInjector.h DESTINATION include/)
 
+###################
+##  GumInjected  ##
+###################
+
+set(QBDIGumInjected_SRC
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/GumInjected.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/GumInjected_${OS}.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/GumInjected_${PLATFORM}.s"
+    )
+
+add_library(QBDIGumInjected ${QBDIGumInjected_SRC})
+target_include_directories(QBDIGumInjected PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(QBDIGumInjected libfrida-gum)
+
+
+install(TARGETS QBDIGumInjected ARCHIVE DESTINATION lib)
+install(FILES include/QBDGumInjector.h DESTINATION include/)

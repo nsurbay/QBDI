@@ -1,5 +1,5 @@
-#ifndef _QBDINJECTOR_COMMON_H
-#define _QBDINJECTOR_COMMON_H
+#ifndef QBDI_QBDINJECTOR_COMMON_H
+#define QBDI_QBDINJECTOR_COMMON_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,14 +17,6 @@ extern "C" {
 #define QBDINJECTOR_INJECT 0x2
 #define QBDINJECTOR_WAIT 0x4
 
-// common communication method
-char* init_server(int verbose);
-void init_client(const char* pipename, int verbose);
-void open_pipe();
-void close_pipe();
-void send_message(char* buf, size_t len);
-int read_message(char *buf, size_t len, bool allow_EOF);
-
 // Size of QBDI STACK
 static const size_t STACK_SIZE = 8388608;
 
@@ -33,4 +25,4 @@ static const size_t STACK_SIZE = 8388608;
 }
 #endif
 
-#endif /* _QBDINJECTOR_COMMON_H */
+#endif /* QBDI_QBDINJECTOR_COMMON_H */

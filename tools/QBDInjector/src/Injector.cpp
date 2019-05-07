@@ -19,6 +19,7 @@ void help(int exit_value, char* arg0) {
         "%1$s [-v] [-p ARG] -i INJECT-LIBRARY [-n ENTRYPOINT] -a pid\n"
         "%1$s [-v] [-p ARG] -i INJECT-LIBRARY [-n ENTRYPOINT] [-q|-r|-w] [-e ENV_VARIABLE] -S command [arguments]\n"
         "%1$s [-v] [-p ARG] -i INJECT-LIBRARY [-r|-w] [-e ENV_VARIABLE] -s command [arguments]\n"
+        "%1$s [-v] [-p ARG] -i INJECT-LIBRARY [-r|-w] [-e ENV_VARIABLE] -g command [arguments]\n"
         "\n"
         "inject a library in a process and call ENTRYPOINT\n"
         "\n"
@@ -26,19 +27,20 @@ void help(int exit_value, char* arg0) {
         "    -a | --attach                Inject library to a running process\n"
         "    -S | --spawn                 Create a nex process\n"
         "    -s | --sync                  Create and sync with a new process\n"
+        "    -g | --gum                   Create and inject for GumInjected library\n"
         "\n"
         "Generic arguments (available for all main option):\n"
         "    -h | --help                  Show this help\n"
-        "    -i | --inject-library        Library to inject\n"
+        "    -i | --inject-library        Library to inject (mandatory)\n"
         "    -p | --parameter             Additionnal parameter passed to entrypoint\n"
         "    -v | --verbose               Enable verbose log of QBDInjector\n"
         "\n"
         "Others arguments:\n"
-        "    -e | --env                   Add a environment variable to the new processus (only with -S|-s)\n"
+        "    -e | --env                   Add a environment variable to the new processus (not available with -a)\n"
         "    -n | --entrypoint-name       Set entrypoint (default : \"%2$s\") (only with -a|-S)\n"
         "    -q | --quit                  Don't resume and wait the process to terminated (only with -S)\n"
-        "    -r | --resume                Resume the process but don't wait (only with -S|-s)\n"
-        "    -w | --wait                  Resume and wait the process (not with -S|-s) (default)\n";
+        "    -r | --resume                Resume the process but don't wait (not available with -a)\n"
+        "    -w | --wait                  Resume and wait the process (default)\n";
 
     if (exit_value == 0) {
         printf(help_text, arg0, DEFAULT_ENTRYPOINT);
@@ -56,6 +58,7 @@ std::unique_ptr<Arguments> parse_argv(int argc, char** argv) {
         {"attach",               required_argument, 0, 'a'},
         {"spawn",                required_argument, 0, 'S'},
         {"sync",                 required_argument, 0, 's'},
+        {"gum",                  required_argument, 0, 'g'},
 
         {"inject-library",       required_argument, 0, 'i'},
         {"entrypoint-parameter", required_argument, 0, 'p'},
@@ -81,18 +84,21 @@ std::unique_ptr<Arguments> parse_argv(int argc, char** argv) {
     arg->wait = true;
     arg->resume = true;
 
-    while ((c = getopt_long (argc, argv, "a:s:S:i:n:p:e:hvqrw", long_options, &option_index)) != -1) {
+    while ((c = getopt_long (argc, argv, "a:s:S:g:i:n:p:e:hvqrw", long_options, &option_index)) != -1) {
         switch (c) {
             case 'S':
             case 's':
+            case 'g':
                 if (arg->exectype != ExecType::NONE) {
-                    fprintf(stderr, "--attach, --spawn and --sync are mutually incompatible.\n");
+                    fprintf(stderr, "--attach, --spawn, --sync and --gum are mutually incompatible.\n");
                     help(1, argv[0]);
                 }
                 if (c == 'S') {
                     arg->exectype = ExecType::SPAWN;
-                } else {
+                } else if (c == 's') {
                     arg->exectype = ExecType::SYNC;
+                } else {
+                    arg->exectype = ExecType::GUM;
                 }
                 arg->command = optarg;
                 // follow argument were command arguments, don't parse it
@@ -104,7 +110,7 @@ std::unique_ptr<Arguments> parse_argv(int argc, char** argv) {
             case 'a':
                 char* end;
                 if (arg->exectype != ExecType::NONE) {
-                    fprintf(stderr, "--attach, --spawn and --sync are mutually incompatible.\n");
+                    fprintf(stderr, "--attach, --spawn, --sync and --gum are mutually incompatible.\n");
                     help(1, argv[0]);
                 }
                 arg->exectype = ExecType::ATTACH;
@@ -161,16 +167,22 @@ std::unique_ptr<Arguments> parse_argv(int argc, char** argv) {
         }
     }
     if (arg->exectype == ExecType::NONE) {
-        fprintf(stderr, "Need --attach,--spawn or --sync\n");
+        fprintf(stderr, "Need --attach,--spawn, --sync or --gum\n");
         help(1, argv[0]);
     }
 
     if (arg->exectype == ExecType::SYNC) {
         if (arg->entrypoint_name != NULL) {
-            fprintf(stderr, "Cannot use --entrypoint_name with --sync\n");
+            fprintf(stderr, "Cannot use --entrypoint_name with --sync or --gum\n");
             help(1, argv[0]);
         }
-        arg->entrypoint_name = strdup(ENTRYPOINT_NAME);
+        arg->entrypoint_name = strdup(SYNC_ENTRYPOINT_NAME);
+    } else if (arg->exectype == ExecType::GUM) {
+        if (arg->entrypoint_name != NULL) {
+            fprintf(stderr, "Cannot use --entrypoint_name with --gum\n");
+            help(1, argv[0]);
+        }
+        arg->entrypoint_name = strdup(GUM_ENTRYPOINT_NAME);
     }
 
     if (arg->entrypoint_name == NULL) {
@@ -182,6 +194,15 @@ std::unique_ptr<Arguments> parse_argv(int argc, char** argv) {
     }
 
     arg->entrypoint_parameter = arg->parameter;
+
+    if (arg->injectlibrary == NULL) {
+        fprintf(stderr, "--inject-library must be set\n");
+        help(1, argv[0]);
+    }
+    if (!test_library(arg.get())) {
+        fprintf(stderr, "[-] Don't found %s\n", arg->injectlibrary);
+        exit(1);
+    }
 
     return arg;
 }
@@ -238,8 +259,10 @@ int spawn(Arguments* arg) {
     if (arg->exectype == ExecType::SPAWN) {
         LOG1("[+] Inject lib %s and call %s(\"%s\")\n", arg->injectlibrary, arg->entrypoint_name, arg->entrypoint_parameter);
         ret = inject(device, arg);
-    } else {
+    } else if (arg->exectype == ExecType::SYNC) {
         ret = sync(device, arg);
+    } else {
+        ret = gum(device, arg);
     }
 
     if (!ret && arg->resume) {
