@@ -82,7 +82,7 @@ __qbdinjected_enter:
     // rdi = GRPState*
     // rsi = FPRstate*
     mov rdi, rsp;
-    lea rsi, [rsp+108];
+    lea rsi, [rsp+144];
     call __qbdinjected_allocate;
 
 __qbdinjected_change_stack:
