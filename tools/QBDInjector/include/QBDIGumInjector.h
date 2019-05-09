@@ -19,12 +19,9 @@ extern "C" {
 #if defined(QBDI_OS_WIN)
 #include <windows.h>
 #pragma comment(linker, "/export:_qbdiguminjector_frida_entrypoint")
-#pragma comment(linker, "/export:__qbdinjected_allocate")
 #else
 void _qbdiguminjector_frida_entrypoint(const char* msg, bool* stay_resident);
 static void __attribute__ ((used)) *___qbdiguminjector_frida_entrypoint__fp = (void*) &_qbdiguminjector_frida_entrypoint;
-void __qbdinjected_allocate(GPRState* gpr, FPRState* fpr);
-static void __attribute__ ((used)) *____qbdinjected_allocate__fp = (void*) &__qbdinjected_allocate;
 #endif
 
 /*

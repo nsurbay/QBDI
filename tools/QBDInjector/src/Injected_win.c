@@ -11,12 +11,6 @@ static struct _win_Injected_ctx {
     CONTEXT *thread_ctx;
 } ctx = {NULL, NULL};
 
-
-bool test_library(Arguments* arg) {
-    // TODO
-    return true;
-}
-
 void __main_windows_entrypoint();
 
 int get_maintid(int pid) {

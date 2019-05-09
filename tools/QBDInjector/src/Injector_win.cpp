@@ -14,6 +14,11 @@ int gum(FridaDevice* device, Arguments* arg) {
     return sync(device, arg);
 }
 
+bool test_library(Arguments* arg) {
+    // TODO
+    return true;
+}
+
 int sync(FridaDevice* device, Arguments* arg) {
 
     GError* error = nullptr;

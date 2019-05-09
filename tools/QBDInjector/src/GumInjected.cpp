@@ -1,11 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdbool.h>
 #include <vector>
 #include <algorithm>
 
-#include "frida-gum.h"
 #include "GumInjected.h"
 
 namespace QBDInjector {
@@ -110,14 +108,15 @@ void __qbdinjected_qbdi_main(QBDI::GPRState* gpr, QBDI::FPRState* fpr) {
     }
     if (!instrumented) {
         fprintf(stderr, "[-] Fail to get callback\n");
-        _exit(1);
+        abort();
     }
 
     // instrument
     enable_callback();
     gum_interceptor_unignore_current_thread(gum_interceptor_obtain());
     __qbdinjected_exit(gpr, fpr);
-    __builtin_unreachable();
+    //__builtin_unreachable();
+    abort();
 }
 
 void __qbdinjected_allocate(QBDI::GPRState* gpr, QBDI::FPRState* fpr) {
@@ -126,11 +125,11 @@ void __qbdinjected_allocate(QBDI::GPRState* gpr, QBDI::FPRState* fpr) {
     static QBDI::FPRState* fprtransfert = NULL;
     gum_interceptor_ignore_current_thread(gum_interceptor_obtain());
 
-    // todo set RIP
+    // set RIP
     GumInvocationContext* ctx = gum_interceptor_get_current_invocation ();
     if (ctx == NULL) {
         fprintf(stderr, "[-] Fail to get current context\n");
-        _exit(1);
+        abort();
     }
     gpr->rip = (QBDI::rword) gum_invocation_context_get_replacement_function_data (ctx);
 
@@ -149,7 +148,8 @@ void __qbdinjected_allocate(QBDI::GPRState* gpr, QBDI::FPRState* fpr) {
     memcpy(fprtransfert, fpr, sizeof(QBDI::FPRState));
 
     __qbdinjected_change_stack(gprtransfert, fprtransfert, qbdi_stack, __qbdinjected_qbdi_main);
-    __builtin_unreachable();
+    //__builtin_unreachable();
+    abort();
 }
 
 }

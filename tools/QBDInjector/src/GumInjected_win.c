@@ -1,18 +1,35 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdbool.h>
-#include <sys/mman.h>
+#include <windows.h>
+#include <TlHelp32.h>
 
 #include "GumInjected.h"
 
-void __attribute__ ((visibility ("default")))
-_qbdiguminjector_frida_entrypoint(const char* param, bool* persistent) {
+int get_maintid(int pid) {
+    bool valid = true;
+    THREADENTRY32 th32;
+    th32.dwSize = sizeof(THREADENTRY32);
+
+    HANDLE hThreadSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (hThreadSnap == INVALID_HANDLE_VALUE) {
+        return -1;
+    }
+    for(valid = Thread32First(hThreadSnap, &th32); valid; valid = Thread32Next(hThreadSnap, &th32)) {
+        if (th32.th32OwnerProcessID == pid) {
+            CloseHandle(hThreadSnap);
+            return th32.th32ThreadID;
+        }
+    }
+    CloseHandle(hThreadSnap);
+    return -1;
+}
+
+void _qbdiguminjector_frida_entrypoint(const char* param, bool* persistent) {
     *persistent = true;
 
     if (qbdiguminjector_frida_earlyinit(param, persistent))
         return;
-
 
     gum_init_embedded();
     setvbuf(stdin, NULL, _IONBF, 0);
@@ -21,20 +38,36 @@ _qbdiguminjector_frida_entrypoint(const char* param, bool* persistent) {
 
     if (qbdiguminjector_frida_init(param))
         return;
+
+    int maintid = get_maintid(GetCurrentProcessId());
+    if (maintid < 0) {
+        fprintf(stderr, "[-] Fail to find main tid\n");
+        return;
+    }
+
+    HANDLE MainThread = OpenThread(THREAD_ALL_ACCESS, TRUE, maintid);
+    if (MainThread == NULL) {
+        fprintf(stderr, "[-] Fail to OpenThread on tid %d (error: %d)\n", maintid, GetLastError());
+        return;
+    }
+    ResumeThread(MainThread);
+    CloseHandle(MainThread);
+
     if (qbdiguminjector_frida_run(param))
         return;
 }
 
 void* get_stack() {
-    void* qbdi_stack = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-    if (qbdi_stack == MAP_FAILED) {
-        perror("[-] mmap failled ...");
+    void* qbdi_stack = VirtualAlloc(NULL, STACK_SIZE, MEM_COMMIT, PAGE_READWRITE);
+    if (qbdi_stack == NULL) {
+        perror("[-] VirtualAlloc failled ...");
         abort();
     }
+
 #if defined(QBDI_ARCH_X86)
-    qbdi_stack += STACK_SIZE - 4;
+    qbdi_stack = ((void*) ((rword) qbdi_stack + STACK_SIZE - 4));
 #else
-    qbdi_stack += STACK_SIZE - 8;
+    qbdi_stack = ((void*) ((rword) qbdi_stack + STACK_SIZE - 8));
 #endif
 
     return qbdi_stack;
@@ -52,9 +85,7 @@ VMInstanceRef qbdiguminjector_init_vm(GPRState* gpr, FPRState* fpr) {
     qbdi_removeInstrumentedModuleFromAddr(vm, (rword) &qbdiguminjector_init_vm);
     qbdi_removeInstrumentedModuleFromAddr(vm, (rword) &qbdi_removeInstrumentedModuleFromAddr);
     for(i = 0; i < size; i++) {
-        if (strstr(modules[i], "libc-2.") ||
-            strstr(modules[i], "ld-2.") ||
-            strstr(modules[i], "libcofi")) {
+        if (strstr(modules[i], "ntdll.")) {
             qbdi_removeInstrumentedModule(vm, modules[i]);
         }
     }

@@ -143,7 +143,7 @@ install(FILES include/QBDInjector.h DESTINATION include/)
 set(QBDIGumInjected_SRC
     "${CMAKE_CURRENT_SOURCE_DIR}/src/GumInjected.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/GumInjected_${OS}.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/GumInjected_${PLATFORM}.s"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/GumInjected_${PLATFORM}.${ASM_EXT}"
     )
 
 add_library(QBDIGumInjected ${QBDIGumInjected_SRC})

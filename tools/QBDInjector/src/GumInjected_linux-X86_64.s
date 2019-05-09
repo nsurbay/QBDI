@@ -17,10 +17,6 @@
  */
 .intel_syntax noprefix
 
-// function that allocate a new stack and copy GPRState/FPRState
-// never return by calling __qbdinjected_change_stack
-.extern  __qbdinjected_allocate
-
 .text
 
 .globl __qbdinjected_enter
