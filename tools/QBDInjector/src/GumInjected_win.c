@@ -85,7 +85,8 @@ VMInstanceRef qbdiguminjector_init_vm(GPRState* gpr, FPRState* fpr) {
     qbdi_removeInstrumentedModuleFromAddr(vm, (rword) &qbdiguminjector_init_vm);
     qbdi_removeInstrumentedModuleFromAddr(vm, (rword) &qbdi_removeInstrumentedModuleFromAddr);
     for(i = 0; i < size; i++) {
-        if (strstr(modules[i], "ntdll.")) {
+        if (strstr(modules[i], "ntdll.") ||
+                strstr(modules[i], "ucrtbased.")) {
             qbdi_removeInstrumentedModule(vm, modules[i]);
         }
     }

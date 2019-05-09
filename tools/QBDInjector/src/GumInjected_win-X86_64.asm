@@ -83,6 +83,8 @@ __qbdinjected_enter PROC
     ; rdx = FPRstate*
     mov rcx, rsp;
     lea rdx, [rsp+144];
+    push rdx;
+    push rcx;
     call __qbdinjected_allocate;
 __qbdinjected_enter ENDP
 
@@ -92,8 +94,10 @@ __qbdinjected_change_stack PROC
     ; r8 = void* new_stack
     ; r9 = void* next_call
     
-    mov rsp, r9;
-    jmp r8;
+    mov rsp, r8;
+    push rdx;
+    push rcx;
+    jmp r9;
 __qbdinjected_change_stack ENDP
 
 
